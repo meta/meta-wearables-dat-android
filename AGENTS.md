@@ -1,5 +1,17 @@
 # Meta Wearables DAT SDK
 
+## Agent execution
+
+Read [project memory](PROJECT_MEMORY.md) and [project plan](PROJECT_PLAN.md) before each item; reconcile with Git and remote issues/PRs.
+
+- Start from checked-out `master`, fast-forwarded from `origin/master`, then create a focused task branch/worktree. Preserve edits and unpublished commits with an isolated worktree when needed.
+- Write acceptance test cases before implementation code. Run a focused test red, implement minimally, then run green and relevant regressions. Define artifact checks first for documentation/configuration edits.
+- Own verification: provision tools, dependencies, fixtures, mocks and emulators/simulators yourself. Waiting for verification is actionable work. Record commands/results and distinguish mock, live and physical-device acceptance.
+- Continue after creating a PR: update memory and plan, track/revisit review and checks, and take the highest-priority independent TODO from fresh `master`.
+- Claim subagent items with owner, branch/worktree, dependencies, acceptance cases and next action. Return changed files, commit/PR, test evidence and remaining actions; reconcile results before closing items.
+- Update memory and plan after every item in the same change. Mark done against evidence and continue until every agreed TODO is complete. If tools cannot resolve an external prerequisite, retain the item with evidence, owner and unblock action, pursue other work, and report the dependency if nothing executable remains.
+- Commit/push intended files only. Follow PR policy unless the user explicitly requests direct `master` publication; never force-push.
+
 > Full API reference: https://wearables.developer.meta.com/llms.txt?full=true
 > DAT docs MCP: https://mcp.developer.meta.com/wearables
 > Developer docs: https://wearables.developer.meta.com/docs/develop/
