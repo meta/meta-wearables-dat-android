@@ -86,6 +86,7 @@ import com.meta.wearable.dat.externalsampleapps.cameraaccess.R
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.camera.CameraUiState
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.camera.CameraViewModel
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.wearables.WearablesViewModel
+import androidx.compose.material.icons.filled.Tune
 
 // Scrims behind the top/bottom bars so the white controls stay legible over the live feed. Hoisted
 // so they're allocated once instead of on every bar recomposition (the recording timer ticks).
@@ -113,6 +114,9 @@ fun CameraScreen(
   val wearablesUi by wearablesViewModel.uiState.collectAsStateWithLifecycle()
   val activity = LocalActivity.current
   var showSettingsMenu by remember { mutableStateOf(false) }
+    var showStreamSettings by remember {
+        mutableStateOf(false)
+    }
 
   val isUpdateRequired = wearablesUi.isFirmwareUpdateRequired
 
@@ -138,11 +142,17 @@ fun CameraScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
+
       TopBar(
+
           ui = ui,
           isDisconnectEnabled = wearablesUi.registrationState == RegistrationState.REGISTERED,
           showSettingsMenu = showSettingsMenu,
+          onOpenStreamSettings = {
+              showStreamSettings = true
+          },
           onToggleSettings = { showSettingsMenu = !showSettingsMenu },
+
           onDisconnect = {
             activity?.let { wearablesViewModel.startUnregistration(it) }
             showSettingsMenu = false
@@ -194,6 +204,21 @@ fun CameraScreen(
           },
       )
     }
+      if (showStreamSettings) {
+          StreamSettingsDialog(
+              ui = ui,
+              onDismiss = {
+                  showStreamSettings = false
+              },
+              onApply = { quality, fps ->
+                  cameraViewModel.applyStreamSettings(
+                      quality,
+                      fps
+                  )
+                  showStreamSettings = false
+              }
+          )
+      }
   }
 }
 
@@ -346,6 +371,7 @@ private fun TopBar(
     ui: CameraUiState,
     isDisconnectEnabled: Boolean,
     showSettingsMenu: Boolean,
+    onOpenStreamSettings: () -> Unit,
     onToggleSettings: () -> Unit,
     onDisconnect: () -> Unit,
 ) {
@@ -373,6 +399,16 @@ private fun TopBar(
     }
 
     Spacer(modifier = Modifier.weight(1f))
+
+      Icon(
+          imageVector = Icons.Filled.Tune,
+          contentDescription = "Video settings",
+          tint = Color.White,
+          modifier = Modifier
+              .size(28.dp)
+              .clickable(onClick = onOpenStreamSettings)
+      )
+      Spacer(modifier = Modifier.width(18.dp))
 
     Box {
       // Pinned to TopEnd so it stays put when the Disconnect popover below widens this Box.

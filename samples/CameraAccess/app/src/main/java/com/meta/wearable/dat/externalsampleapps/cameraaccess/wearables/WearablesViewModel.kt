@@ -33,6 +33,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import android.util.Log
 
 class WearablesViewModel(private val application: Application) : AndroidViewModel(application) {
   private val _uiState = MutableStateFlow(WearablesUiState())
@@ -56,7 +57,15 @@ class WearablesViewModel(private val application: Application) : AndroidViewMode
     // Monitor device selector for active device
     deviceSelectorJob = viewModelScope.launch {
       deviceSelector.activeDeviceFlow().collect { device ->
-        _uiState.update { it.copy(hasActiveDevice = device != null) }
+
+        Log.d(
+          "GlassesBridge",
+          "Active device available: ${device != null}"
+        )
+
+        _uiState.update {
+          it.copy(hasActiveDevice = device != null)
+        }
       }
     }
 
@@ -64,6 +73,10 @@ class WearablesViewModel(private val application: Application) : AndroidViewMode
     viewModelScope.launch {
       Wearables.registrationState.collect { value ->
         _uiState.update { it.copy(registrationState = value) }
+        Log.d(
+          "GlassesBridge",
+          "Registration state: $value"
+        )
       }
     }
     // This automatically updates when devices are discovered, connected, or disconnected
@@ -72,6 +85,11 @@ class WearablesViewModel(private val application: Application) : AndroidViewMode
         _uiState.update { it.copy(devices = value.toList().toImmutableList()) }
         // Monitor device metadata for compatibility issues
         monitorDeviceCompatibility(value)
+
+        Log.d(
+          "GlassesBridge",
+          "Discovered device count: ${value.size}"
+        )
       }
     }
   }

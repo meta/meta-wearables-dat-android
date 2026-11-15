@@ -73,7 +73,6 @@ class CameraViewModel(
 
   companion object {
     private const val TAG = "CameraAccess:CameraViewModel"
-    private const val FRAME_RATE = 60
     private const val KEYFRAME_WAIT_STEP_MS = 25L
     private const val KEYFRAME_WAIT_MAX_MS = 500L
   }
@@ -127,6 +126,8 @@ class CameraViewModel(
   private var videoJob: Job? = null
   private var streamStateJob: Job? = null
   private var streamErrorJob: Job? = null
+
+  private var restartPreviewAfterSettings = false
 
   init {
     videoRecorder.setAudioInputHandler(audioInputHandler)
@@ -215,6 +216,8 @@ class CameraViewModel(
     val current = session ?: return
     _uiState.update { it.copy(sessionState = DeviceSessionState.STOPPING) }
     current.stop()
+
+    restartPreviewAfterSettings = false
   }
 
   private fun observeSession(session: DeviceSession) {
@@ -242,6 +245,7 @@ class CameraViewModel(
     sessionErrorJob?.cancel()
     sessionErrorJob = null
     session = null
+    restartPreviewAfterSettings = false
   }
 
   // MARK: - Lifecycle step 2: stream (preview)
@@ -309,13 +313,11 @@ class CameraViewModel(
     StreamingService.start(getApplication())
     current
         .addCamera(
-            StreamConfiguration(
-                videoQuality = VideoQuality.LOW,
-                frameRate = FRAME_RATE,
-                // Compressed HEVC so frames feed both the on-screen decoder and the passthrough
-                // MP4 writer.
-                compressVideo = true,
-            ),
+          StreamConfiguration(
+            videoQuality = _uiState.value.requestedVideoQuality,
+            frameRate = _uiState.value.requestedFrameRate,
+            compressVideo = true,
+          )
         )
         .onSuccess { addedCamera ->
           camera = addedCamera
@@ -345,6 +347,38 @@ class CameraViewModel(
     _uiState.update { it.copy(streamState = StreamState.STOPPING) }
     current.stop()
     // The stream-state collector converges teardown when STOPPED/CLOSED arrives.
+  }
+
+  fun applyStreamSettings(
+    quality: VideoQuality,
+    frameRate: Int
+  ) {
+    val state = _uiState.value
+
+    if (
+      frameRate !in listOf(15, 24, 30) ||
+      state.isBusy ||
+      state.isRecording ||
+      state.isCapturingPhoto ||
+      state.isPaused
+    ) return
+
+    if (
+      state.requestedVideoQuality == quality &&
+      state.requestedFrameRate == frameRate
+    ) return
+
+    _uiState.update {
+      it.copy(
+        requestedVideoQuality = quality,
+        requestedFrameRate = frameRate
+      )
+    }
+
+    if (state.isStreaming) {
+      restartPreviewAfterSettings = true
+      stopStreaming()
+    }
   }
 
   private fun setupStreamListeners(stream: Stream) {
@@ -446,6 +480,13 @@ class CameraViewModel(
         Log.e(TAG, "onStreamTerminated glasses audio release failed", e)
       }
       clearStreamResources()
+
+      val shouldRestart = restartPreviewAfterSettings
+      restartPreviewAfterSettings = false
+
+      if (shouldRestart && _uiState.value.isSessionActive) {
+        startStreaming()
+      }
     }
   }
 
@@ -681,6 +722,7 @@ class CameraViewModel(
    */
   private fun handleUnregistered() {
     session?.stop()
+    restartPreviewAfterSettings = false
   }
 
   override fun onCleared() {
