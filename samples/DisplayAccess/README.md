@@ -74,7 +74,7 @@ mwdat_client_token=YOUR_CLIENT_TOKEN
 
 ## Troubleshooting
 
-For issues related to the Meta Wearables Device Access Toolkit, please refer to the [developer documentation](https://wearables.developer.meta.com/docs/develop/dat/) or visit our [discussions forum](https://github.com/facebook/meta-wearables-dat-android/discussions)
+For issues related to the Meta Wearables Device Access Toolkit, please refer to the [developer documentation](https://wearables.developer.meta.com/docs/develop/dat/) or visit our [discussions forum](https://github.com/meta/meta-wearables-dat-android/discussions)
 
 ## License
 

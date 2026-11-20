@@ -7,12 +7,12 @@ description: Building a complete DAT app with session creation, camera streaming
 
 Build an Android DAT app with registration, sessions, camera streaming, and photo capture.
 
-Pair this with the [CameraAccess sample](https://github.com/facebook/meta-wearables-dat-android/tree/main/samples).
+Pair this with the [CameraAccess sample](https://github.com/meta/meta-wearables-dat-android/tree/main/samples).
 
 ## Project setup
 
 1. Create an Android Studio app project.
-2. Add the DAT Maven repository and dependencies.
+2. Declare the SDK dependencies in `libs.versions.toml` and your app's `build.gradle.kts`.
 3. Configure `AndroidManifest.xml` for registration callbacks plus `APPLICATION_ID` and `CLIENT_TOKEN`.
 4. Initialize `Wearables` in your `Application`.
 
@@ -87,6 +87,11 @@ class SessionViewModel : ViewModel() {
         ).fold(
             onSuccess = { addedCamera ->
                 camera = addedCamera
+                viewModelScope.launch {
+                    addedCamera.stream.videoStream.collect { frame ->
+                        // Render preview
+                    }
+                }
                 addedCamera.stream.start().onFailure { error, _ ->
                     showError(error.description)
                 }
@@ -103,15 +108,9 @@ class SessionViewModel : ViewModel() {
 }
 ```
 
-## Observe frames and capture photos
+## Capture photos
 
 ```kotlin
-viewModelScope.launch {
-    camera?.stream?.videoStream?.collect { frame ->
-        // Render preview
-    }
-}
-
 fun capturePhoto() {
     viewModelScope.launch {
         camera?.stream?.capturePhoto()
@@ -141,10 +140,10 @@ fun stopCameraSession() {
 
 ## Testing with MockDeviceKit
 
-Use `MockDeviceKit` to simulate linking glasses, permission state, and camera media without physical hardware. See [MockDevice Testing](mockdevice-testing.md) for setup details.
+Use `MockDeviceKit` to simulate linking glasses, permission state, and camera media without physical hardware. See the `mockdevice-testing` skill for setup details.
 
 ## Links
 
-- [CameraAccess sample](https://github.com/facebook/meta-wearables-dat-android/tree/main/samples)
+- [CameraAccess sample](https://github.com/meta/meta-wearables-dat-android/tree/main/samples)
 - [Android integration guide](https://wearables.developer.meta.com/docs/build-integration-android)
 - [Developer documentation](https://wearables.developer.meta.com/docs/develop/)

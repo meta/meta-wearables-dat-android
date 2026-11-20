@@ -26,6 +26,7 @@ dependencies {
 
 ```kotlin
 import com.meta.wearable.dat.mockdevice.MockDeviceKit
+import com.meta.wearable.dat.mockdevice.api.GlassesModel
 import com.meta.wearable.dat.mockdevice.api.MockDeviceKitConfig
 
 val mockDeviceKit = MockDeviceKit.getInstance(context)
@@ -88,11 +89,13 @@ val camera = device.services.camera
 camera.setCapturedImage(imageUri)
 ```
 
-**Note**: Android doesn't transcode video automatically. Mock video files must be in h.265 format. Use FFmpeg to convert:
+**Note**: Android doesn't transcode video automatically. Mock video files must be in h.265 format: the SDK requests HEVC, so MockDeviceKit rejects an h.264 file when the stream starts. Use FFmpeg to convert:
 
 ```bash
-ffmpeg -hwaccel videotoolbox -i input.mp4 -c:v hevc_videotoolbox -c:a aac_at -tag:v hvc1 -vf "scale=540:960" output.mov
+ffmpeg -i input.mp4 -c:v libx265 -tag:v hvc1 -an -vf "scale=540:960" output.mp4
 ```
+
+On macOS, `-c:v hevc_videotoolbox` uses the hardware encoder instead.
 
 ### Phone camera as the feed
 
@@ -109,6 +112,7 @@ import android.content.Context
 import androidx.test.ext.junit.rules.ActivityScenarioRule
 import androidx.test.platform.app.InstrumentationRegistry
 import com.meta.wearable.dat.mockdevice.MockDeviceKit
+import com.meta.wearable.dat.mockdevice.api.MockDeviceKitConfig
 import com.meta.wearable.dat.mockdevice.api.MockDeviceKitInterface
 import org.junit.After
 import org.junit.Before
@@ -122,6 +126,7 @@ open class MockDeviceKitTestCase<T : Any>(
 
     protected lateinit var mockDeviceKit: MockDeviceKitInterface
     protected lateinit var targetContext: Context
+    protected open val mockDeviceKitConfig = MockDeviceKitConfig()
 
     @Before
     open fun setUp() {
@@ -129,6 +134,7 @@ open class MockDeviceKitTestCase<T : Any>(
         targetContext = instrumentation.targetContext
         mockDeviceKit = MockDeviceKit.getInstance(targetContext)
         grantRuntimePermissions()
+        mockDeviceKit.enable(mockDeviceKitConfig)
     }
 
     @After
@@ -145,6 +151,8 @@ open class MockDeviceKitTestCase<T : Any>(
 }
 ```
 
+To start a test in another state, override `mockDeviceKitConfig` in the subclass, for example with `MockDeviceKitConfig(initiallyRegistered = false)`. Don't call `enable` again inside the test: once the kit is enabled, further `enable` calls are ignored until `disable()`.
+
 ## Using MockDeviceKit in the CameraAccess sample
 
 The CameraAccess sample app includes a Debug menu for MockDeviceKit:
@@ -159,7 +167,7 @@ The CameraAccess sample app includes a Debug menu for MockDeviceKit:
 
 | Type | Formats |
 |------|---------|
-| Video | h.264 (AVC), h.265 (HEVC) |
+| Video | h.265 (HEVC) |
 | Image | JPEG, PNG |
 
 ## Links

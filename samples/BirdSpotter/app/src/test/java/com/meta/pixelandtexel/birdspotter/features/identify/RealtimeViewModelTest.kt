@@ -10,6 +10,7 @@
 
 package com.meta.pixelandtexel.birdspotter.features.identify
 
+import android.app.Activity
 import android.graphics.Bitmap
 import android.os.Looper
 import com.meta.pixelandtexel.birdspotter.data.audio.WavCodec
@@ -41,6 +42,7 @@ import com.meta.pixelandtexel.birdspotter.domain.DemoResult
 import com.meta.pixelandtexel.birdspotter.domain.GazeProvider
 import com.meta.pixelandtexel.birdspotter.domain.GlassesAccess
 import com.meta.pixelandtexel.birdspotter.domain.GlassesCameraRepository
+import com.meta.pixelandtexel.birdspotter.domain.GlassesCompatibility
 import com.meta.pixelandtexel.birdspotter.domain.GlassesDeviceInfo
 import com.meta.pixelandtexel.birdspotter.domain.GlassesDisplayRepository
 import com.meta.pixelandtexel.birdspotter.domain.GlassesError
@@ -89,6 +91,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 
@@ -575,6 +578,110 @@ class RealtimeViewModelTest {
 
     assertNull(viewModel.uiState.value.glassesBattery)
     assertTrue(!viewModel.uiState.value.isGlassesAvailable)
+  }
+
+  @Test
+  fun observeGlasses_aPairBehindOnFirmware_reportsTheUpdateEvenWhileUnreachable() = runBlocking {
+    // A firmware-behind pair may never link, so the update reading cannot wait on
+    // reachability: the glance stays quiet, but the prompt still appears.
+    val glasses = FakeReachableGlassesSession()
+    val viewModel = viewModel(audio = FakeAudioSource(), glassesSession = glasses)
+
+    val observing = launch { viewModel.observeGlasses() }
+
+    glasses.report(
+        GlassesDeviceInfo(
+            name = "Ray-Ban",
+            isAvailable = false,
+            compatibility = GlassesCompatibility.DEVICE_UPDATE_REQUIRED,
+            batteryLevel = 82,
+        ),
+    )
+
+    var spins = 0
+    while (!viewModel.uiState.value.requiresFirmwareUpdate && spins++ < 200) yield()
+    observing.cancel()
+
+    assertTrue(viewModel.uiState.value.requiresFirmwareUpdate)
+    assertTrue(viewModel.uiState.value.isUpdateRequired)
+    assertNull(viewModel.uiState.value.glassesBattery)
+  }
+
+  @Test
+  fun observeGlasses_aPairBroughtCurrent_clearsTheUpdateRequirement() = runBlocking {
+    val glasses = FakeReachableGlassesSession()
+    val viewModel = viewModel(audio = FakeAudioSource(), glassesSession = glasses)
+
+    val observing = launch { viewModel.observeGlasses() }
+
+    glasses.report(
+        GlassesDeviceInfo(
+            name = "Ray-Ban",
+            isAvailable = false,
+            compatibility = GlassesCompatibility.DEVICE_UPDATE_REQUIRED,
+        ),
+    )
+    var spins = 0
+    while (!viewModel.uiState.value.requiresFirmwareUpdate && spins++ < 200) yield()
+
+    glasses.report(
+        GlassesDeviceInfo(
+            name = "Ray-Ban",
+            isAvailable = true,
+            compatibility = GlassesCompatibility.COMPATIBLE,
+        ),
+    )
+    while (viewModel.uiState.value.requiresFirmwareUpdate && spins++ < 400) yield()
+    observing.cancel()
+
+    assertFalse(viewModel.uiState.value.requiresFirmwareUpdate)
+    assertFalse(viewModel.uiState.value.isUpdateRequired)
+  }
+
+  @Test
+  fun updateRequired_followsEitherUpdateFlag() {
+    assertFalse(RealtimeUiState().isUpdateRequired)
+    assertTrue(RealtimeUiState(requiresFirmwareUpdate = true).isUpdateRequired)
+    assertTrue(RealtimeUiState(isDATAppUpdateRequired = true).isUpdateRequired)
+  }
+
+  @Test
+  fun aRunThatEndsOnAStaleDatApp_marksTheUpdateAsRequired() = runBlocking {
+    // A session that fails because the glasses' DAT app is behind leaves the
+    // update prompt up: the next tap must offer the update, not another run.
+    val viewModel = viewModel(
+        audio = FakeAudioSource(openForMillis = 500),
+        glassesSession = FakeStaleDatGlassesSession(),
+    )
+    viewModel.startOnGlasses()
+
+    val session = launch { viewModel.observeSession() }
+
+    var spins = 0
+    while (!viewModel.uiState.value.isDATAppUpdateRequired && spins++ < 400) yield()
+    session.cancel()
+
+    assertTrue(viewModel.uiState.value.isDATAppUpdateRequired)
+    assertTrue(viewModel.uiState.value.isUpdateRequired)
+  }
+
+  @Test
+  fun openUpdate_whenTheLaunchThrows_showsTheFailureInsteadOfWedgingTheGuard() {
+    // The SDK throws when it was never initialised, and startActivity can throw
+    // when its target vanishes between the resolve and the launch. Either way
+    // the prompt must name the failure and stay usable for the next tap.
+    val viewModel = viewModel(audio = FakeAudioSource(), glassesSession = FakeGlassesSession())
+    val activity = Robolectric.buildActivity(Activity::class.java).get()
+
+    viewModel.openUpdate(activity)
+
+    assertFalse(viewModel.uiState.value.isLaunchingUpdate)
+    assertTrue(viewModel.uiState.value.updateFailure?.isNotEmpty() == true)
+
+    viewModel.openUpdate(activity)
+
+    assertFalse(viewModel.uiState.value.isLaunchingUpdate)
+    assertTrue(viewModel.uiState.value.updateFailure?.isNotEmpty() == true)
   }
 
   @Test
@@ -2610,6 +2717,24 @@ private class FakeGrantedGlassesSession : GlassesSessionRepository {
   override fun sessionStream(): Flow<GlassesSessionState> = flow {
     emit(GlassesSessionState.STARTING)
     awaitCancellation()
+  }
+
+  override suspend fun access(permission: GlassesPermission): GlassesAccess = GlassesAccess.GRANTED
+}
+
+/**
+ * Glasses whose DAT app is behind: registered, in reach, the grant read granted, and a session that
+ * fails the moment it is opened for want of the update.
+ */
+private class FakeStaleDatGlassesSession : GlassesSessionRepository {
+  override fun registrationStateStream(): Flow<GlassesRegistrationState> =
+      flowOf(GlassesRegistrationState.REGISTERED)
+
+  override fun deviceInfoStream(): Flow<GlassesDeviceInfo?> =
+      flowOf(GlassesDeviceInfo(name = "Ray-Ban", isAvailable = true))
+
+  override fun sessionStream(): Flow<GlassesSessionState> = flow {
+    throw GlassesError.GlassesUpdateRequired
   }
 
   override suspend fun access(permission: GlassesPermission): GlassesAccess = GlassesAccess.GRANTED

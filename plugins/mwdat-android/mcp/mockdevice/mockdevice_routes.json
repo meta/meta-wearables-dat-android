@@ -1,0 +1,750 @@
+{
+  "_generated": "@generated -- do not edit.",
+  "contractVersion": 1,
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/health"
+    },
+    {
+      "method": "GET",
+      "path": "/capabilities"
+    },
+    {
+      "method": "POST",
+      "path": "/kit/enable",
+      "tool": "mock_enable",
+      "description": "Enable MockDeviceKit, so the app's SDK talks to simulated glasses. Has no effect while it is already enabled: call mock_disable first to apply a different configuration. Verify with mock_is_enabled.",
+      "body": {
+        "type": "object",
+        "properties": {
+          "initiallyRegistered": {
+            "type": "boolean",
+            "description": "Start registered with Meta AI. Defaults to true; pass false to exercise the registration flow."
+          },
+          "initialPermissionsGranted": {
+            "type": "boolean",
+            "description": "Start with every permission granted when registered. Defaults to true; pass false to exercise the permission flow."
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/kit/disable",
+      "tool": "mock_disable",
+      "description": "Disable MockDeviceKit: unpairs every mock device and restores the real SDK providers. The test server keeps running, so mock_enable works afterwards. Verify with mock_is_enabled."
+    },
+    {
+      "method": "GET",
+      "path": "/kit/is-enabled",
+      "tool": "mock_is_enabled",
+      "description": "Return whether MockDeviceKit is enabled: {status, isEnabled}."
+    },
+    {
+      "method": "GET",
+      "path": "/kit/paired-devices",
+      "tool": "mock_device_state",
+      "description": "Return the ids of the paired mock devices: {status, pairedDevices}. Use this to verify the effect of pair/unpair (pairedDevices should include the deviceId mock_pair_device returned)."
+    },
+    {
+      "method": "POST",
+      "path": "/kit/pair-glasses",
+      "tool": "mock_pair_device",
+      "description": "Pair a mock glasses device. It starts powered off, folded, and not worn: call mock_power_on, then mock_don (which also unfolds) before the app can use it. Returns {status, deviceId}. Verify with mock_device_state: pairedDevices should include the returned deviceId.",
+      "body": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "enum": ["rayBanMeta", "oakleyMetaHSTN", "oakleyMetaVanguard", "rayBanMetaOptics", "metaGlasses", "metaRayBanDisplay"],
+            "default": "rayBanMeta",
+            "description": "Glasses model to simulate, by its `GlassesModel` case name. Defaults to 'rayBanMeta'; pass 'metaRayBanDisplay' for a display-capable device."
+          }
+        },
+        "required": ["model"]
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/kit/unpair-device",
+      "tool": "mock_unpair_device",
+      "device": true,
+      "description": "Unpair a mock device. Verify with mock_device_state (the device leaves pairedDevices)."
+    },
+    {
+      "method": "POST",
+      "path": "/device/power-on",
+      "tool": "mock_power_on",
+      "device": true,
+      "description": "Power the mock device on."
+    },
+    {
+      "method": "POST",
+      "path": "/device/power-off",
+      "tool": "mock_power_off",
+      "device": true,
+      "description": "Power the mock device off (ends the active session)."
+    },
+    {
+      "method": "POST",
+      "path": "/device/don",
+      "tool": "mock_don",
+      "device": true,
+      "description": "Simulate putting the mock glasses on."
+    },
+    {
+      "method": "POST",
+      "path": "/device/doff",
+      "tool": "mock_doff",
+      "device": true,
+      "description": "Simulate taking the mock glasses off."
+    },
+    {
+      "method": "POST",
+      "path": "/device/fold",
+      "tool": "mock_fold",
+      "device": true,
+      "description": "Fold the mock glasses (ends the active session)."
+    },
+    {
+      "method": "POST",
+      "path": "/device/unfold",
+      "tool": "mock_unfold",
+      "device": true,
+      "description": "Unfold the mock glasses."
+    },
+    {
+      "method": "POST",
+      "path": "/device/set-battery-level",
+      "tool": "mock_set_battery_level",
+      "device": true,
+      "description": "Set the battery level the mock device reports, from 0 to 100. The app reads it from the device's metadata; verify it in the app's battery UI.",
+      "body": {
+        "type": "object",
+        "required": ["level"],
+        "properties": {
+          "level": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Battery charge in percent."
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/device/set-charging-state",
+      "tool": "mock_set_charging_state",
+      "device": true,
+      "description": "Set whether the mock device reports that it is charging. The app reads it from the device's metadata.",
+      "body": {
+        "type": "object",
+        "required": ["state"],
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": ["charging", "notCharging", "unknown"],
+            "description": "The charging state to report."
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/device/set-thermal-level",
+      "tool": "mock_set_thermal_level",
+      "device": true,
+      "description": "Set the thermal level the mock device reports, to exercise the app's handling of a hot device. The app reads it from the device's metadata.",
+      "body": {
+        "type": "object",
+        "required": ["level"],
+        "properties": {
+          "level": {
+            "type": "string",
+            "enum": ["none", "light", "moderate", "severe", "critical", "emergency", "unknown"],
+            "description": "The thermal level to report, from 'none' (normal) to 'emergency'."
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/captouch/tap",
+      "tool": "mock_captouch_tap",
+      "device": true,
+      "description": "Single-tap the cap-touch sensor; toggles the active session between paused and running."
+    },
+    {
+      "method": "POST",
+      "path": "/captouch/tap-and-hold",
+      "tool": "mock_captouch_tap_and_hold",
+      "device": true,
+      "description": "Tap-and-hold the cap-touch sensor; stops the active session."
+    },
+    {
+      "method": "POST",
+      "path": "/camera/set-camera-feed/resource",
+      "tool": "mock_set_camera_feed",
+      "device": true,
+      "description": "Set the mock camera video feed to a resource bundled in the target app. After the app starts a stream, the mocked video plays as the camera feed.",
+      "body": {
+        "type": "object",
+        "required": ["resourceName", "ext"],
+        "properties": {
+          "resourceName": {
+            "type": "string",
+            "description": "Bundle resource name (e.g. 'plant'). Must be bundled in the target app."
+          },
+          "ext": {
+            "type": "string",
+            "description": "File extension (e.g. 'mp4' or 'png')."
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/camera/set-captured-image",
+      "tool": "mock_set_captured_image",
+      "device": true,
+      "description": "Set the mock still image returned for Stream.capturePhoto, from a bundled resource. A phone-camera feed set by mock_set_camera_facing takes precedence. Camera.photo ignores this image: use mock_set_captured_photo.",
+      "body": {
+        "type": "object",
+        "required": ["resourceName", "ext"],
+        "properties": {
+          "resourceName": {
+            "type": "string",
+            "description": "Bundle resource name (e.g. 'plant'). Must be bundled in the target app."
+          },
+          "ext": {
+            "type": "string",
+            "description": "File extension (e.g. 'mp4' or 'png')."
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/input/nav-up",
+      "tool": "mock_input_nav",
+      "handler": "custom",
+      "device": true,
+      "body": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": ["captouch", "neuralBand", "captureButton", "actionButton", "neuralBandDrag", "unknown"],
+            "default": "captouch",
+            "description": "The surface the event should appear to come from. Defaults to 'captouch'."
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/input/nav-down",
+      "tool": "mock_input_nav",
+      "handler": "custom",
+      "device": true,
+      "body": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": ["captouch", "neuralBand", "captureButton", "actionButton", "neuralBandDrag", "unknown"],
+            "default": "captouch",
+            "description": "The surface the event should appear to come from. Defaults to 'captouch'."
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/input/nav-left",
+      "tool": "mock_input_nav",
+      "handler": "custom",
+      "device": true,
+      "body": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": ["captouch", "neuralBand", "captureButton", "actionButton", "neuralBandDrag", "unknown"],
+            "default": "captouch",
+            "description": "The surface the event should appear to come from. Defaults to 'captouch'."
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/input/nav-right",
+      "tool": "mock_input_nav",
+      "handler": "custom",
+      "device": true,
+      "body": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": ["captouch", "neuralBand", "captureButton", "actionButton", "neuralBandDrag", "unknown"],
+            "default": "captouch",
+            "description": "The surface the event should appear to come from. Defaults to 'captouch'."
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/input/select",
+      "tool": "mock_input_select",
+      "device": true,
+      "description": "Inject a select / confirm event. Delivered only while the app has an Inputs session streaming.",
+      "body": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": ["captouch", "neuralBand", "captureButton", "actionButton", "neuralBandDrag", "unknown"],
+            "default": "captouch",
+            "description": "The surface the event should appear to come from. Defaults to 'captouch'."
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/input/back",
+      "tool": "mock_input_back",
+      "device": true,
+      "description": "Inject a back / dismiss event. Delivered only while the app has an Inputs session streaming.",
+      "body": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": ["captouch", "neuralBand", "captureButton", "actionButton", "neuralBandDrag", "unknown"],
+            "default": "captouch",
+            "description": "The surface the event should appear to come from. Defaults to 'captouch'."
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/input/capture",
+      "tool": "mock_input_capture",
+      "device": true,
+      "description": "Press the glasses capture button. Delivered only while the app has an Inputs session streaming.",
+      "body": {
+        "type": "object",
+        "properties": {
+          "pressType": {
+            "type": "string",
+            "enum": ["shortPress", "hold", "doublePress"],
+            "default": "shortPress",
+            "description": "The gesture to simulate. 'shortPress' (the default) typically takes a photo, 'hold' starts a video, 'doublePress' stops one."
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/input/button",
+      "tool": "mock_input_action",
+      "device": true,
+      "description": "Inject a press of the glasses action button. Delivered only while the app has an Inputs session streaming.",
+      "body": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["action"],
+            "default": "action",
+            "description": "Which button to press. Defaults to 'action', the only button."
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/input/drag",
+      "tool": "mock_input_drag",
+      "device": true,
+      "description": "Inject one sample of a Neural Band drag. Deliver a full drag as action='down', then any number of 'move' samples, then 'up'.",
+      "body": {
+        "type": "object",
+        "required": ["action", "x", "y", "dx", "dy"],
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": ["down", "move", "up"],
+            "description": "The phase of the drag this sample represents."
+          },
+          "x": {
+            "type": "number",
+            "description": "Absolute x position."
+          },
+          "y": {
+            "type": "number",
+            "description": "Absolute y position."
+          },
+          "dx": {
+            "type": "number",
+            "description": "Change in x since the previous sample."
+          },
+          "dy": {
+            "type": "number",
+            "description": "Change in y since the previous sample."
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/motion/set-motion-feed",
+      "tool": "mock_set_motion_feed",
+      "device": true,
+      "description": "Set the mock IMU stream to a CSV recording bundled in the target app, for deterministic replay. Columns, in order: timestampNs, accel XYZ (m/s²), gyro XYZ (rad/s), mag XYZ (µT), orientation WXYZ. May be set before or during a Motion session.",
+      "body": {
+        "type": "object",
+        "required": ["resourceName", "ext"],
+        "properties": {
+          "resourceName": {
+            "type": "string",
+            "description": "Bundle resource name (e.g. 'plant'). Must be bundled in the target app."
+          },
+          "ext": {
+            "type": "string",
+            "description": "File extension (e.g. 'mp4' or 'png')."
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/speech/simulate-transcription",
+      "tool": "mock_speech_transcribe",
+      "device": true,
+      "description": "Deliver a transcription result to the app. Delivered only while the app has a Speech session listening; otherwise it is dropped.",
+      "body": {
+        "type": "object",
+        "required": ["text"],
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "The transcribed text to deliver."
+          },
+          "isFinal": {
+            "type": "boolean",
+            "description": "Whether this closes the utterance. Defaults to true; pass false to deliver a partial result."
+          },
+          "confidence": {
+            "type": "number",
+            "description": "Recognition confidence in [0, 1]. Defaults to 0.95."
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/speech/simulate-error",
+      "tool": "mock_speech_error",
+      "device": true,
+      "description": "Deliver a terminal recognition error, ending the Speech session. Use this to exercise the app's error handling.",
+      "body": {
+        "type": "object",
+        "required": ["errorCode", "message"],
+        "properties": {
+          "errorCode": {
+            "type": "integer",
+            "description": "A raw android.speech.SpeechRecognizer code, not the SDK's SpeechError (e.g. 7 for no-match)."
+          },
+          "message": {
+            "type": "string",
+            "description": "Human-readable error detail."
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/speech/simulate-completion",
+      "tool": "mock_speech_complete",
+      "device": true,
+      "description": "Complete the active Speech session normally, as the device does when the user stops talking."
+    },
+    {
+      "method": "POST",
+      "path": "/speech/set-locale",
+      "tool": "mock_speech_set_locale",
+      "device": true,
+      "description": "Set the locale the mock reports for the next Speech session. Has no effect on a session already in progress.",
+      "body": {
+        "type": "object",
+        "required": ["locale"],
+        "properties": {
+          "locale": {
+            "type": "string",
+            "description": "A locale like 'en_US'."
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/speech/set-transcription-source",
+      "tool": "mock_speech_set_transcription_source",
+      "device": true,
+      "description": "Choose where the next Speech session's transcriptions come from: 'injected' (the default) delivers only what mock_speech_transcribe sends; 'liveDeviceAsr' transcribes the host's microphone with the platform recognizer and needs microphone and speech-recognition permission. Ignored while a session is listening.",
+      "body": {
+        "type": "object",
+        "required": ["source"],
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": ["injected", "liveDeviceAsr"],
+            "description": "Transcription source."
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/services/set-dat-app-update-requirement-enabled",
+      "tool": "mock_set_dat_app_update_required",
+      "device": true,
+      "description": "While enabled, the glasses report an old Device Access Toolkit app version, so the app's next session start surfaces the app-on-the-glasses update-required error. Disable to report a supported version again. Lasts until changed or the device is unpaired.",
+      "body": {
+        "type": "object",
+        "required": ["enabled"],
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether the update is required."
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/services/set-firmware-update-requirement-enabled",
+      "tool": "mock_set_firmware_update_required",
+      "device": true,
+      "description": "While enabled, the glasses report firmware below the SDK's minimum, so the app's session start fails with update required. Takes effect when the glasses next connect: call it before mock_power_on. Disable to report supported firmware again. Lasts until changed or the device is unpaired.",
+      "body": {
+        "type": "object",
+        "required": ["enabled"],
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether the update is required."
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/camera-capture/set-captured-photo",
+      "tool": "mock_set_captured_photo",
+      "device": true,
+      "description": "Set the photo the mock device returns for Camera.photo captures, from a JPEG or HEIC resource bundled in the target app. Set this before the app captures; without it the device reports no capture is available. Stream.capturePhoto ignores it: use mock_set_captured_image.",
+      "body": {
+        "type": "object",
+        "required": ["resourceName", "ext"],
+        "properties": {
+          "resourceName": {
+            "type": "string",
+            "description": "Bundle resource name (e.g. 'plant'). Must be bundled in the target app."
+          },
+          "ext": {
+            "type": "string",
+            "description": "File extension (e.g. 'mp4' or 'png')."
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/camera-capture/simulate-capture-failure",
+      "tool": "mock_simulate_capture_failure",
+      "device": true,
+      "description": "Arm a single capture failure: the next Camera.photo capture responds with an error instead of an image, then the flag clears. Stream.capturePhoto ignores it."
+    },
+    {
+      "method": "POST",
+      "path": "/camera/set-camera-feed/camera-facing",
+      "tool": "mock_set_camera_facing",
+      "device": true,
+      "description": "Stream the mock camera feed from one of the phone's physical cameras instead of a bundled file. Clears any file feed set by mock_set_camera_feed. A simulator has no camera, so this is for physical devices.",
+      "body": {
+        "type": "object",
+        "required": ["cameraFacing"],
+        "properties": {
+          "cameraFacing": {
+            "type": "string",
+            "enum": ["front", "back"],
+            "description": "Which phone camera to use."
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/permissions/set",
+      "tool": "mock_set_permission",
+      "description": "Set the status the mock reports when the app checks a wearable permission. Use this to drive the app's permission-denied path.",
+      "body": {
+        "type": "object",
+        "required": ["permission", "status"],
+        "properties": {
+          "permission": {
+            "type": "string",
+            "enum": ["camera", "microphone"],
+            "description": "The wearable permission to configure."
+          },
+          "status": {
+            "type": "string",
+            "enum": ["granted", "denied"],
+            "description": "The status to report for it."
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/permissions/set-request-result",
+      "tool": "mock_set_permission_request_result",
+      "description": "Set the result the mock returns when the app *requests* a wearable permission, rather than merely checks it.",
+      "body": {
+        "type": "object",
+        "required": ["permission", "result"],
+        "properties": {
+          "permission": {
+            "type": "string",
+            "enum": ["camera", "microphone"],
+            "description": "The wearable permission to configure."
+          },
+          "result": {
+            "type": "string",
+            "enum": ["granted", "denied"],
+            "description": "The status to report for it."
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/voice-invocation/has-connected-apps",
+      "tool": "mock_has_connected_apps",
+      "device": true,
+      "description": "Whether any app is connected to the device's voice-invocation service, i.e. would receive mock_voice_launch_app. Returns {status, hasConnectedApps}."
+    },
+    {
+      "method": "GET",
+      "path": "/speech/is-listening",
+      "tool": "mock_speech_is_listening",
+      "device": true,
+      "description": "Whether the app has a Speech session listening on the device, i.e. whether mock_speech_transcribe would be delivered. Returns {status, isListening}."
+    },
+    {
+      "method": "GET",
+      "path": "/speech/live-source-diagnostic",
+      "tool": "mock_speech_live_source_diagnostic",
+      "device": true,
+      "description": "Why the live speech source (mock_speech_set_transcription_source 'liveDeviceAsr') is not transcribing, e.g. a missing permission, or null when it is fine or not in use. Returns {status, liveSourceDiagnostic}."
+    },
+    {
+      "method": "GET",
+      "path": "/motion/is-streaming",
+      "tool": "mock_motion_is_streaming",
+      "device": true,
+      "description": "Whether the app is streaming motion (IMU) samples from the device. Returns {status, isStreaming}."
+    },
+    {
+      "method": "POST",
+      "path": "/voice-invocation/simulate-launch-app-action",
+      "tool": "mock_voice_launch_app",
+      "device": true,
+      "description": "Trigger a Hey Meta launch-app voice invocation, as if the user had spoken a command to open the app. Returns the requestId of the delivered action; a null requestId means no app was listening, so nothing was delivered."
+    },
+    {
+      "method": "POST",
+      "path": "/voice-invocation/simulate-incomplete-action",
+      "tool": "mock_voice_incomplete_action",
+      "device": true,
+      "description": "Deliver a deliberately malformed Hey Meta action, to check the app surfaces the error instead of acting on a bogus invocation. Returns the requestId; a null requestId means no app was listening."
+    },
+    {
+      "method": "GET",
+      "path": "/display-preview/content",
+      "tool": "mock_display_content",
+      "handler": "custom",
+      "query": {
+        "type": "object",
+        "properties": {
+          "afterRevision": {
+            "type": "integer",
+            "description": "Pass the revision from a previous call to poll for a change; the reply is {unchanged: true} while the content still matches it."
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/display/send-click",
+      "tool": "mock_display_click",
+      "description": "Tap an element on the simulated glasses display, as the user would on real glasses. Identifiers are content-derived and change on every redraw: take a fresh one from mock_display_content's tree each time. Fails with a conflict when no display session is active; ok means delivered, not matched.",
+      "body": {
+        "type": "object",
+        "required": ["identifier"],
+        "properties": {
+          "identifier": {
+            "type": "string",
+            "description": "A click identifier from mock_display_content."
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/display-preview/video",
+      "tool": "mock_display_video",
+      "description": "Report a video playback event from the simulated glasses display, as the on-glass player would while showing a video the app sent.",
+      "body": {
+        "type": "object",
+        "required": ["event"],
+        "properties": {
+          "event": {
+            "type": "string",
+            "enum": ["started", "stopped", "ended"],
+            "description": "The playback transition to report."
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/"
+    },
+    {
+      "method": "GET",
+      "path": "/preview.js"
+    },
+    {
+      "method": "GET",
+      "path": "/preview.css"
+    },
+    {
+      "method": "GET",
+      "path": "/host.js"
+    },
+    {
+      "method": "GET",
+      "path": "/display-preview/config"
+    }
+  ]
+}

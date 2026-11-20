@@ -48,7 +48,7 @@ Wearables.createSession(AutoDeviceSelector()).fold(
 )
 ```
 
-Add capabilities from `onStarted(session)`. Calling `session.addCamera(...)` while the session is still `IDLE` fails with `DeviceSessionError.SESSION_IDLE`, and calling it after `STOPPED` fails with `DeviceSessionError.SESSION_ALREADY_STOPPED`.
+Add each capability once from `onStarted(session)`: a resumed session goes from `PAUSED` back to `STARTED` and keeps its capabilities, so a second `session.addCamera(...)` fails with `DeviceSessionError.CAPABILITY_ALREADY_ADDED`. Calling `session.addCamera(...)` while the session is still `IDLE` fails with `DeviceSessionError.SESSION_IDLE`, and calling it after `STOPPED` fails with `DeviceSessionError.SESSION_ALREADY_STOPPED`.
 
 ## Stream state
 

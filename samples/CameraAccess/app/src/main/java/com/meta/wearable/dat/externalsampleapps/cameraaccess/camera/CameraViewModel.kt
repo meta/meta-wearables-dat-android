@@ -39,6 +39,7 @@ import com.meta.wearable.dat.core.Wearables
 import com.meta.wearable.dat.core.selectors.DeviceSelector
 import com.meta.wearable.dat.core.session.DeviceSession
 import com.meta.wearable.dat.core.session.DeviceSessionState
+import com.meta.wearable.dat.core.types.DeviceSessionError
 import com.meta.wearable.dat.core.types.Permission
 import com.meta.wearable.dat.core.types.PermissionStatus
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.R
@@ -61,10 +62,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
 class CameraViewModel(
     application: Application,
@@ -76,6 +79,7 @@ class CameraViewModel(
     private const val FRAME_RATE = 24
     private const val KEYFRAME_WAIT_STEP_MS = 25L
     private const val KEYFRAME_WAIT_MAX_MS = 500L
+    private const val SESSION_STOP_TIMEOUT_MS = 5_000L
   }
 
   private class RecorderFrame(
@@ -92,6 +96,8 @@ class CameraViewModel(
   val uiState: StateFlow<CameraUiState> = _uiState.asStateFlow()
 
   private var session: DeviceSession? = null
+  private var retrySessionJob: Job? = null
+  private var retryAfterSessionStop = false
   private var camera: Camera? = null
   private var stream: Stream? = null
 
@@ -171,6 +177,12 @@ class CameraViewModel(
           .distinctUntilChanged()
           .collect { isRegistered -> if (!isRegistered) handleUnregistered() }
     }
+
+    viewModelScope.launch {
+      deviceSelector.activeDeviceFlow().distinctUntilChanged().collect {
+        _uiState.update { state -> state.copy(isDATAppUpdateRequired = false) }
+      }
+    }
   }
 
   // MARK: - Surface
@@ -190,6 +202,7 @@ class CameraViewModel(
   /** Creates and starts a [DeviceSession] (no stream yet). */
   fun startSession() {
     if (_uiState.value.hasSession) return
+    _uiState.update { it.copy(isDATAppUpdateRequired = false) }
     Wearables.createSession(deviceSelector)
         .onSuccess { created ->
           session = created
@@ -200,9 +213,58 @@ class CameraViewModel(
         }
         .onFailure { error, _ ->
           Log.e(TAG, "Failed to start session: ${error.description}")
+          _uiState.update {
+            it.copy(
+                isDATAppUpdateRequired =
+                    it.isDATAppUpdateRequired ||
+                        error == DeviceSessionError.DAT_APP_ON_THE_GLASSES_UPDATE_REQUIRED,
+            )
+          }
           wearablesViewModel.setRecentError(error.getLocalizedDescription(getApplication()))
           cleanupSession()
         }
+  }
+
+  /** Stops the session that delivered the one-shot update error, then starts a fresh one. */
+  fun retrySession() {
+    if (session == null) {
+      startSession()
+      return
+    }
+    if (retrySessionJob?.isActive == true) return
+
+    val current = session ?: return
+    retryAfterSessionStop = true
+    if (current.state.value == DeviceSessionState.STOPPED) {
+      // The SDK has already reached its terminal state; there may be no new observer emission.
+      _uiState.update { it.copy(sessionState = DeviceSessionState.STOPPED) }
+      handleSessionStopped(current)
+      return
+    }
+
+    retrySessionJob = viewModelScope.launch {
+      if (
+          current.state.value != DeviceSessionState.STOPPED &&
+              current.state.value != DeviceSessionState.STOPPING
+      ) {
+        current.stop()
+      }
+      val stopped =
+          withTimeoutOrNull(SESSION_STOP_TIMEOUT_MS) {
+            current.state.first { it == DeviceSessionState.STOPPED }
+          }
+      if (stopped == null && current.state.value != DeviceSessionState.STOPPED) {
+        retryAfterSessionStop = false
+        retrySessionJob = null
+        Log.e(TAG, "Timed out waiting for the session to stop before retrying")
+        // Leave the recovery CTA available to retry; the next tap can wait for an already-stopping
+        // session without issuing a second stop request.
+        wearablesViewModel.setRecentError(
+            getApplication<Application>().getString(R.string.error_session_retry_stop_timeout),
+        )
+        return@launch
+      }
+    }
   }
 
   /**
@@ -212,6 +274,10 @@ class CameraViewModel(
    * resources.
    */
   fun endSession() {
+    retryAfterSessionStop = false
+    retrySessionJob?.cancel()
+    retrySessionJob = null
+    _uiState.update { it.copy(isDATAppUpdateRequired = false) }
     val current = session ?: return
     _uiState.update { it.copy(sessionState = DeviceSessionState.STOPPING) }
     current.stop()
@@ -222,25 +288,39 @@ class CameraViewModel(
       session.state.collect { state ->
         _uiState.update { it.copy(sessionState = state) }
         if (state == DeviceSessionState.STOPPED) {
-          cleanupSession()
+          handleSessionStopped(session)
         }
       }
     }
+    sessionErrorJob?.cancel()
     sessionErrorJob = viewModelScope.launch {
       session.errors.collect { error ->
         // All session errors surface through the snackbar, including
         // DAT_APP_ON_THE_GLASSES_UPDATE_REQUIRED, which the SDK delivers as a one-shot event.
         Log.e(TAG, "Session error: ${error.description}")
+        _uiState.update {
+          it.copy(
+              isDATAppUpdateRequired =
+                  it.isDATAppUpdateRequired ||
+                      error == DeviceSessionError.DAT_APP_ON_THE_GLASSES_UPDATE_REQUIRED,
+          )
+        }
         wearablesViewModel.setRecentError(error.getLocalizedDescription(getApplication()))
       }
     }
   }
 
+  private fun handleSessionStopped(stoppedSession: DeviceSession) {
+    if (session !== stoppedSession) return
+    val shouldRetry = retryAfterSessionStop
+    retryAfterSessionStop = false
+    cleanupSession()
+    if (shouldRetry) startSession()
+  }
+
   private fun cleanupSession() {
     sessionStateJob?.cancel()
     sessionStateJob = null
-    sessionErrorJob?.cancel()
-    sessionErrorJob = null
     session = null
   }
 

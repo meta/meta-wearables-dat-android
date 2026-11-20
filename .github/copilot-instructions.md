@@ -1,6 +1,6 @@
 # Meta Wearables DAT SDK — AI Instructions
 
-> Full API reference: [https://wearables.developer.meta.com/llms.txt?full=true](https://wearables.developer.meta.com/llms.txt?full=true)
+> API reference index (follow its links): [https://wearables.developer.meta.com/llms.txt](https://wearables.developer.meta.com/llms.txt)
 >
 > DAT docs MCP: [https://mcp.developer.meta.com/wearables](https://mcp.developer.meta.com/wearables)
 >
@@ -33,14 +33,17 @@ The SDK is organized into four public modules:
 ```kotlin
 Wearables.initialize(context)
 
+var camera: Camera? = null
+
 Wearables.createSession(AutoDeviceSelector()).fold(
     onSuccess = { session ->
         lifecycleScope.launch {
             session.state.collect { state ->
-                if (state == DeviceSessionState.STARTED) {
+                if (state == DeviceSessionState.STARTED && camera == null) {
                     session.addCamera(StreamConfiguration()).fold(
-                        onSuccess = { camera ->
-                            camera.stream.start().onFailure { error, _ ->
+                        onSuccess = { addedCamera ->
+                            camera = addedCamera
+                            addedCamera.stream.start().onFailure { error, _ ->
                                 showError(error.description)
                             }
                         },
@@ -70,9 +73,11 @@ Wearables.createSession(AutoDeviceSelector()).fold(
 ## Error handling
 
 ```kotlin
-Wearables.checkPermissionStatus(Permission.CAMERA)
-    .onSuccess { status -> /* handle status */ }
-    .onFailure { error, _ -> /* handle error */ }
+lifecycleScope.launch {
+    Wearables.checkPermissionStatus(Permission.CAMERA)
+        .onSuccess { status -> /* handle status */ }
+        .onFailure { error, _ -> /* handle error */ }
+}
 ```
 
 Avoid `getOrThrow()` in user-facing samples. Surface typed errors from `DatResult` instead.
@@ -128,14 +133,14 @@ Use MockDeviceKit to drive registration, device availability, streaming media, a
 - Do not call SDK APIs before `Wearables.initialize(context)`
 - Do not call `addCamera(...)` or `addDisplay()` immediately after `session.start()`; wait for `DeviceSessionState.STARTED`
 - Do not assume a session implies streaming or display access; capabilities are attached separately
-- Do not ignore `DatResult` failures from `createSession`, `start`, `addCamera`, `addDisplay`, or `capturePhoto`
+- Do not ignore `DatResult` failures from `createSession`, `addCamera`, `addDisplay`, `stream.start()`, or `capturePhoto`; `session.start()` returns `Unit`, so watch `session.errors` for its failures
 - Do not reuse terminally stopped sessions, cameras, or streams
 
 ## Links
 
 - [Android API reference](https://wearables.developer.meta.com/docs/reference/android/dat/latest)
 - [Developer documentation](https://wearables.developer.meta.com/docs/develop/)
-- [GitHub repository](https://github.com/facebook/meta-wearables-dat-android)
+- [GitHub repository](https://github.com/meta/meta-wearables-dat-android)
 
 # Camera Streaming (Android)
 
@@ -345,7 +350,7 @@ Developer Mode must be enabled for local development builds that use `mwdat_appl
 
 ### Stream never reaches `STREAMING`
 
-- Confirm `session.start()` succeeded before calling `session.addCamera(...)`
+- Call `session.addCamera(...)` only after `session.state` reports `STARTED`; `session.start()` returns `Unit`, so watch `session.errors` for start failures
 - Check camera permission status through `Wearables.checkPermissionStatus(...)`
 - Make sure `camera.stream.start()` returned success
 
@@ -383,7 +388,7 @@ Prefer logging typed `DatResult` failures and observed state transitions over ge
 
 - [Known issues](https://wearables.developer.meta.com/docs/knownissues)
 - [Version dependencies](https://wearables.developer.meta.com/docs/version-dependencies)
-- [Troubleshooting discussions](https://github.com/facebook/meta-wearables-dat-android/discussions)
+- [Troubleshooting discussions](https://github.com/meta/meta-wearables-dat-android/discussions)
 
 # Getting Started with DAT SDK (Android)
 
@@ -392,19 +397,20 @@ Set up the Meta Wearables Device Access Toolkit in an Android app.
 ## Prerequisites
 
 - Android Studio Flamingo or newer
+- Kotlin, Android Gradle Plugin and JDK versions matching the [CameraAccess sample](https://github.com/meta/meta-wearables-dat-android/tree/main/samples/CameraAccess) or newer (see its `gradle/libs.versions.toml` and `app/build.gradle.kts`)
 - Android 10+ test device with the Meta AI app installed
 - Supported Meta glasses or MockDeviceKit for local testing
 - Developer Mode enabled in the Meta AI app for development builds
 
-The SDK is published to Maven Central under the `com.meta.wearable` group, so the `mavenCentral()` repository already declared in `settings.gradle.kts` is all that is needed. No access token is required.
-
 ## Step 1: Declare dependencies
+
+The SDK is published to Maven Central under the `com.meta.wearable` group, so no access token or extra repository definition is required. The `mavenCentral()` repository in your `settings.gradle.kts` is all you need.
 
 In `libs.versions.toml`:
 
 ```toml
 [versions]
-mwdat = "1.0.1"
+mwdat = "1.1.0"
 
 [libraries]
 mwdat-core = { group = "com.meta.wearable", name = "mwdat-core", version.ref = "mwdat" }
@@ -483,10 +489,14 @@ class MyApplication : Application() {
 Registration must complete before a session can start. Observe `Wearables.registrationState` and wait for `RegistrationState.REGISTERED`.
 
 ```kotlin
+import android.app.Activity
+import androidx.lifecycle.lifecycleScope
 import com.meta.wearable.dat.core.Wearables
 import com.meta.wearable.dat.core.selectors.AutoDeviceSelector
 import com.meta.wearable.dat.core.session.DeviceSession
 import com.meta.wearable.dat.core.session.DeviceSessionState
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 fun connect(activity: Activity) {
     Wearables.startRegistration(activity)
@@ -499,11 +509,8 @@ fun startSession() {
                 session.errors.collect { error -> showError(error.description) }
             }
             lifecycleScope.launch {
-                session.state.collect { state ->
-                    if (state == DeviceSessionState.STARTED) {
-                        addCameraStreaming(session)
-                    }
-                }
+                session.state.first { state -> state == DeviceSessionState.STARTED }
+                addCameraStreaming(session)
             }
             // Fire-and-forget: returns Unit and reports failures through session.errors.
             session.start()
@@ -584,6 +591,7 @@ dependencies {
 
 ```kotlin
 import com.meta.wearable.dat.mockdevice.MockDeviceKit
+import com.meta.wearable.dat.mockdevice.api.GlassesModel
 import com.meta.wearable.dat.mockdevice.api.MockDeviceKitConfig
 
 val mockDeviceKit = MockDeviceKit.getInstance(context)
@@ -647,11 +655,13 @@ val camera = device.services.camera
 camera.setCapturedImage(imageUri)
 ```
 
-**Note**: Android doesn't transcode video automatically. Mock video files must be in h.265 format. Use FFmpeg to convert:
+**Note**: Android doesn't transcode video automatically. Mock video files must be in h.265 format: the SDK requests HEVC, so MockDeviceKit rejects an h.264 file when the stream starts. Use FFmpeg to convert:
 
 ```bash
-ffmpeg -hwaccel videotoolbox -i input.mp4 -c:v hevc_videotoolbox -c:a aac_at -tag:v hvc1 -vf "scale=540:960" output.mov
+ffmpeg -i input.mp4 -c:v libx265 -tag:v hvc1 -an -vf "scale=540:960" output.mp4
 ```
+
+On macOS, `-c:v hevc_videotoolbox` uses the hardware encoder instead.
 
 ### Phone camera as the feed
 
@@ -668,6 +678,7 @@ import android.content.Context
 import androidx.test.ext.junit.rules.ActivityScenarioRule
 import androidx.test.platform.app.InstrumentationRegistry
 import com.meta.wearable.dat.mockdevice.MockDeviceKit
+import com.meta.wearable.dat.mockdevice.api.MockDeviceKitConfig
 import com.meta.wearable.dat.mockdevice.api.MockDeviceKitInterface
 import org.junit.After
 import org.junit.Before
@@ -681,6 +692,7 @@ open class MockDeviceKitTestCase<T : Any>(
 
     protected lateinit var mockDeviceKit: MockDeviceKitInterface
     protected lateinit var targetContext: Context
+    protected open val mockDeviceKitConfig = MockDeviceKitConfig()
 
     @Before
     open fun setUp() {
@@ -688,6 +700,7 @@ open class MockDeviceKitTestCase<T : Any>(
         targetContext = instrumentation.targetContext
         mockDeviceKit = MockDeviceKit.getInstance(targetContext)
         grantRuntimePermissions()
+        mockDeviceKit.enable(mockDeviceKitConfig)
     }
 
     @After
@@ -704,6 +717,8 @@ open class MockDeviceKitTestCase<T : Any>(
 }
 ```
 
+To start a test in another state, override `mockDeviceKitConfig` in the subclass, for example with `MockDeviceKitConfig(initiallyRegistered = false)`. Don't call `enable` again inside the test: once the kit is enabled, further `enable` calls are ignored until `disable()`.
+
 ## Using MockDeviceKit in the CameraAccess sample
 
 The CameraAccess sample app includes a Debug menu for MockDeviceKit:
@@ -718,7 +733,7 @@ The CameraAccess sample app includes a Debug menu for MockDeviceKit:
 
 | Type | Formats |
 |------|---------|
-| Video | h.264 (AVC), h.265 (HEVC) |
+| Video | h.265 (HEVC) |
 | Image | JPEG, PNG |
 
 ## Links
@@ -826,12 +841,12 @@ For development builds, enable Developer Mode in the Meta AI app before testing 
 
 Build an Android DAT app with registration, sessions, camera streaming, and photo capture.
 
-Pair this with the [CameraAccess sample](https://github.com/facebook/meta-wearables-dat-android/tree/main/samples).
+Pair this with the [CameraAccess sample](https://github.com/meta/meta-wearables-dat-android/tree/main/samples).
 
 ## Project setup
 
 1. Create an Android Studio app project.
-2. Add the DAT Maven repository and dependencies.
+2. Declare the SDK dependencies in `libs.versions.toml` and your app's `build.gradle.kts`.
 3. Configure `AndroidManifest.xml` for registration callbacks plus `APPLICATION_ID` and `CLIENT_TOKEN`.
 4. Initialize `Wearables` in your `Application`.
 
@@ -906,6 +921,11 @@ class SessionViewModel : ViewModel() {
         ).fold(
             onSuccess = { addedCamera ->
                 camera = addedCamera
+                viewModelScope.launch {
+                    addedCamera.stream.videoStream.collect { frame ->
+                        // Render preview
+                    }
+                }
                 addedCamera.stream.start().onFailure { error, _ ->
                     showError(error.description)
                 }
@@ -922,15 +942,9 @@ class SessionViewModel : ViewModel() {
 }
 ```
 
-## Observe frames and capture photos
+## Capture photos
 
 ```kotlin
-viewModelScope.launch {
-    camera?.stream?.videoStream?.collect { frame ->
-        // Render preview
-    }
-}
-
 fun capturePhoto() {
     viewModelScope.launch {
         camera?.stream?.capturePhoto()
@@ -960,11 +974,11 @@ fun stopCameraSession() {
 
 ## Testing with MockDeviceKit
 
-Use `MockDeviceKit` to simulate linking glasses, permission state, and camera media without physical hardware. See [MockDevice Testing](mockdevice-testing.md) for setup details.
+Use `MockDeviceKit` to simulate linking glasses, permission state, and camera media without physical hardware. See the `mockdevice-testing` skill for setup details.
 
 ## Links
 
-- [CameraAccess sample](https://github.com/facebook/meta-wearables-dat-android/tree/main/samples)
+- [CameraAccess sample](https://github.com/meta/meta-wearables-dat-android/tree/main/samples)
 - [Android integration guide](https://wearables.developer.meta.com/docs/build-integration-android)
 - [Developer documentation](https://wearables.developer.meta.com/docs/develop/)
 
@@ -1013,7 +1027,7 @@ Wearables.createSession(AutoDeviceSelector()).fold(
 )
 ```
 
-Add capabilities from `onStarted(session)`. Calling `session.addCamera(...)` while the session is still `IDLE` fails with `DeviceSessionError.SESSION_IDLE`, and calling it after `STOPPED` fails with `DeviceSessionError.SESSION_ALREADY_STOPPED`.
+Add each capability once from `onStarted(session)`: a resumed session goes from `PAUSED` back to `STARTED` and keeps its capabilities, so a second `session.addCamera(...)` fails with `DeviceSessionError.CAPABILITY_ALREADY_ADDED`. Calling `session.addCamera(...)` while the session is still `IDLE` fails with `DeviceSessionError.SESSION_IDLE`, and calling it after `STOPPED` fails with `DeviceSessionError.SESSION_ALREADY_STOPPED`.
 
 ## Stream state
 
@@ -1125,9 +1139,9 @@ fun startDisplaySession(selectedDeviceId: DeviceIdentifier) {
                     showDatAppUpdateAction()
                 }
                 showError(error.description)
-                return
+                null
             },
-        )
+        ) ?: return
     var display: Display? = null
 
     lifecycleScope.launch {

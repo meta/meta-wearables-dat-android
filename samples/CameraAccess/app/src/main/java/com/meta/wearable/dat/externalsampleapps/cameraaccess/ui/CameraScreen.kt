@@ -56,6 +56,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -95,6 +96,13 @@ private val BottomScrimBrush =
     Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.75f)))
 private const val PREVIEW_ASPECT_RATIO = 9f / 16f
 
+// External-sample import rules require Android resources here; Meta-only Compose localization APIs
+// are not allowed.
+private enum class RequiredUpdateType {
+  FIRMWARE,
+  DAT_APP,
+}
+
 @Composable
 fun CameraScreen(
     wearablesViewModel: WearablesViewModel,
@@ -113,14 +121,24 @@ fun CameraScreen(
   val wearablesUi by wearablesViewModel.uiState.collectAsStateWithLifecycle()
   val activity = LocalActivity.current
   var showSettingsMenu by remember { mutableStateOf(false) }
+  var showStartStream by remember { mutableStateOf(false) }
 
-  val isUpdateRequired = wearablesUi.isFirmwareUpdateRequired
+  val requiredUpdate =
+      when {
+        ui.isDATAppUpdateRequired -> RequiredUpdateType.DAT_APP
+        wearablesUi.isFirmwareUpdateRequired -> RequiredUpdateType.FIRMWARE
+        else -> null
+      }
+
+  LaunchedEffect(ui.isDATAppUpdateRequired) {
+    if (ui.isDATAppUpdateRequired) showStartStream = false
+  }
 
   Box(modifier = modifier.fillMaxSize().background(Color.Black)) {
     PreviewBackground(
         ui = ui,
         hasActiveDevice = wearablesUi.hasActiveDevice,
-        isUpdateRequired = isUpdateRequired,
+        requiredUpdate = requiredUpdate,
         onSurfaceChanged = cameraViewModel::setSurface,
     )
 
@@ -153,7 +171,7 @@ fun CameraScreen(
 
       BottomBar(
           ui = ui,
-          isUpdateRequired = isUpdateRequired,
+          requiredUpdate = requiredUpdate,
           hasActiveDevice = wearablesUi.hasActiveDevice,
           onStartSession = cameraViewModel::startSession,
           onEndSession = cameraViewModel::endSession,
@@ -163,6 +181,13 @@ fun CameraScreen(
           onToggleRecording = { cameraViewModel.toggleRecording(onRequestRecordAudioPermission) },
           onToggleMic = cameraViewModel::toggleMic,
           onUpdateFirmware = { activity?.let { wearablesViewModel.openFirmwareUpdate(it) } },
+          onUpdateDATApp = {
+            if (activity?.let { wearablesViewModel.openDATGlassesAppUpdate(it) } == true) {
+              showStartStream = true
+            }
+          },
+          showStartStream = showStartStream,
+          onStartStream = cameraViewModel::retrySession,
       )
     }
 
@@ -203,7 +228,7 @@ fun CameraScreen(
 private fun PreviewBackground(
     ui: CameraUiState,
     hasActiveDevice: Boolean,
-    isUpdateRequired: Boolean,
+    requiredUpdate: RequiredUpdateType?,
     onSurfaceChanged: (android.view.Surface?) -> Unit,
 ) {
   val liveDescription = stringResource(R.string.live_preview)
@@ -226,7 +251,7 @@ private fun PreviewBackground(
       StatusPlaceholder(
           ui = ui,
           hasActiveDevice = hasActiveDevice,
-          isUpdateRequired = isUpdateRequired,
+          requiredUpdate = requiredUpdate,
       )
     }
 
@@ -283,7 +308,7 @@ private fun PreviewBackground(
 private fun StatusPlaceholder(
     ui: CameraUiState,
     hasActiveDevice: Boolean,
-    isUpdateRequired: Boolean,
+    requiredUpdate: RequiredUpdateType?,
 ) {
   val title: String
   val subtitle: String?
@@ -294,9 +319,16 @@ private fun StatusPlaceholder(
       subtitle = null
       showWaitingRow = true
     }
-    isUpdateRequired -> {
+    requiredUpdate != null -> {
       title = stringResource(R.string.update_required_title)
-      subtitle = stringResource(R.string.update_required_subtitle)
+      subtitle =
+          stringResource(
+              if (requiredUpdate == RequiredUpdateType.DAT_APP) {
+                R.string.update_required_dat_app_subtitle
+              } else {
+                R.string.update_required_subtitle
+              },
+          )
       showWaitingRow = false
     }
     !ui.hasSession -> {
@@ -419,7 +451,7 @@ private fun StatusChip(label: String, value: String, active: Boolean, present: B
 @Composable
 private fun BottomBar(
     ui: CameraUiState,
-    isUpdateRequired: Boolean,
+    requiredUpdate: RequiredUpdateType?,
     hasActiveDevice: Boolean,
     onStartSession: () -> Unit,
     onEndSession: () -> Unit,
@@ -429,6 +461,9 @@ private fun BottomBar(
     onToggleRecording: () -> Unit,
     onToggleMic: () -> Unit,
     onUpdateFirmware: () -> Unit,
+    onUpdateDATApp: () -> Unit,
+    showStartStream: Boolean,
+    onStartStream: () -> Unit,
 ) {
   Column(
       modifier =
@@ -438,12 +473,24 @@ private fun BottomBar(
               .padding(horizontal = 24.dp, vertical = 24.dp),
       verticalArrangement = Arrangement.spacedBy(14.dp),
   ) {
-    if (isUpdateRequired) {
-      UpdateRequiredMessage()
-      SwitchButton(
-          label = stringResource(R.string.update_firmware_button_title),
-          onClick = onUpdateFirmware,
-      )
+    if (requiredUpdate != null) {
+      UpdateRequiredMessage(requiredUpdate = requiredUpdate)
+      if (requiredUpdate == RequiredUpdateType.DAT_APP) {
+        SwitchButton(
+            label =
+                stringResource(
+                    if (showStartStream) R.string.start_stream_button_title
+                    else R.string.update_dat_app_button_title,
+                ),
+            onClick = if (showStartStream) onStartStream else onUpdateDATApp,
+            modifier = Modifier.testTag("dat_app_recovery_button"),
+        )
+      } else {
+        SwitchButton(
+            label = stringResource(R.string.update_firmware_button_title),
+            onClick = onUpdateFirmware,
+        )
+      }
     } else {
       CaptureRow(
           ui = ui,
@@ -678,7 +725,10 @@ private fun CircleIconButton(
 }
 
 @Composable
-private fun UpdateRequiredMessage(modifier: Modifier = Modifier) {
+private fun UpdateRequiredMessage(
+    requiredUpdate: RequiredUpdateType,
+    modifier: Modifier = Modifier,
+) {
   Row(
       modifier =
           modifier
@@ -703,7 +753,14 @@ private fun UpdateRequiredMessage(modifier: Modifier = Modifier) {
           fontSize = 16.sp,
       )
       Text(
-          text = stringResource(R.string.update_required_firmware_message),
+          text =
+              stringResource(
+                  if (requiredUpdate == RequiredUpdateType.DAT_APP) {
+                    R.string.update_required_dat_app_message
+                  } else {
+                    R.string.update_required_firmware_message
+                  },
+              ),
           color = AppColor.UpdateRequiredForeground,
           fontSize = 15.sp,
       )

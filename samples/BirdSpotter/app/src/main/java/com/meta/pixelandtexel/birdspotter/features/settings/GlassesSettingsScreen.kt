@@ -52,12 +52,13 @@ import com.meta.wearable.dat.core.Wearables
  * Meta AI Glasses — where the link stands, pushed from the Settings row once registration has
  * happened.
  *
- * Four readings and three raises. The readings ([GlassesSettingsViewModel]) are the registration
+ * Four readings and four raises. The readings ([GlassesSettingsViewModel]) are the registration
  * state, the glasses Meta AI lists, and DAT's two grants — camera and microphone. The raises are
  * those two grant flows (DAT's own Activity Result contract) and unlinking — all handed to the Meta
  * AI app, all landing their outcome back in the readings, and all here in the screen rather than
  * the view model for the Activity reason
- * [com.meta.pixelandtexel.birdspotter.domain.PermissionsController] documents.
+ * [com.meta.pixelandtexel.birdspotter.domain.PermissionsController] documents. The firmware update
+ * raise lives in the view model instead, taking its Activity from here.
  */
 @Composable
 fun GlassesSettingsScreen(
@@ -73,6 +74,8 @@ fun GlassesSettingsScreen(
   )
   val registrationState by viewModel.registrationState.collectAsStateWithLifecycle()
   val deviceInfo by viewModel.deviceInfo.collectAsStateWithLifecycle()
+  val requiresFirmwareUpdate by viewModel.requiresFirmwareUpdate.collectAsStateWithLifecycle()
+  val firmwareUpdateFailure by viewModel.firmwareUpdateFailure.collectAsStateWithLifecycle()
   val cameraAccess by viewModel.cameraAccess.collectAsStateWithLifecycle()
   val microphoneAccess by viewModel.microphoneAccess.collectAsStateWithLifecycle()
   val context = LocalContext.current
@@ -90,6 +93,8 @@ fun GlassesSettingsScreen(
   GlassesSettingsContent(
       registrationState = registrationState,
       deviceInfo = deviceInfo,
+      requiresFirmwareUpdate = requiresFirmwareUpdate,
+      firmwareUpdateFailure = firmwareUpdateFailure,
       cameraAccess = cameraAccess,
       microphoneAccess = microphoneAccess,
       onBack = onBack,
@@ -102,6 +107,9 @@ fun GlassesSettingsScreen(
           Wearables.startUnregistration(activity)
         }
       },
+      onUpdateFirmware = {
+        context.findActivity()?.let { activity -> viewModel.openFirmwareUpdate(activity) }
+      },
       modifier = modifier,
   )
 }
@@ -111,6 +119,8 @@ fun GlassesSettingsScreen(
 private fun GlassesSettingsContent(
     registrationState: GlassesRegistrationState?,
     deviceInfo: GlassesDeviceInfo?,
+    requiresFirmwareUpdate: Boolean,
+    firmwareUpdateFailure: String?,
     cameraAccess: GlassesAccess?,
     microphoneAccess: GlassesAccess?,
     onBack: () -> Unit,
@@ -119,6 +129,7 @@ private fun GlassesSettingsContent(
     onOpenDisplayScreen: () -> Unit,
     onGrant: (GlassesPermission) -> Unit,
     onUnlink: () -> Unit,
+    onUpdateFirmware: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
   val space = BirdSpotterTheme.space
@@ -169,6 +180,16 @@ private fun GlassesSettingsContent(
             value = deviceInfo?.name ?: "None found",
             support = deviceInfo?.let(::glassesSupport),
         )
+        if (requiresFirmwareUpdate) {
+          ActionButton(title = "Update firmware", onClick = onUpdateFirmware)
+          firmwareUpdateFailure?.let { failure ->
+            Text(
+                text = failure,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+          }
+        }
         deviceInfo?.let { device ->
           StatusRow(label = "Worn", value = wornValue(device))
           StatusRow(label = "Battery", value = batteryValue(device))
@@ -494,6 +515,8 @@ fun GlassesSettingsScreenPreview() {
                 isCharging = false,
                 thermal = GlassesThermalLevel.NOMINAL,
             ),
+        requiresFirmwareUpdate = false,
+        firmwareUpdateFailure = null,
         cameraAccess = GlassesAccess.GRANTED,
         microphoneAccess = GlassesAccess.DENIED,
         onBack = {},
@@ -502,6 +525,7 @@ fun GlassesSettingsScreenPreview() {
         onOpenDisplayScreen = {},
         onGrant = {},
         onUnlink = {},
+        onUpdateFirmware = {},
     )
   }
 }
@@ -522,6 +546,8 @@ fun GlassesSettingsScreenDisconnectedPreview() {
                 isAvailable = false,
                 compatibility = GlassesCompatibility.COMPATIBLE,
             ),
+        requiresFirmwareUpdate = false,
+        firmwareUpdateFailure = null,
         cameraAccess = GlassesAccess.UNKNOWN,
         microphoneAccess = GlassesAccess.UNKNOWN,
         onBack = {},
@@ -530,6 +556,7 @@ fun GlassesSettingsScreenDisconnectedPreview() {
         onOpenDisplayScreen = {},
         onGrant = {},
         onUnlink = {},
+        onUpdateFirmware = {},
     )
   }
 }

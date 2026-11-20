@@ -221,6 +221,14 @@ interface MockDeviceRepository {
   /** Holds the pair's motion feed at a pose for as long as something is listening. */
   fun setMotionPose(id: String, pose: MockMotionPose)
 
+  // Updates
+
+  /** Reports an old DWA version; takes effect from the next session start. */
+  fun setDATAppUpdateRequirementEnabled(id: String, enabled: Boolean)
+
+  /** Reports firmware below the SDK minimum; takes effect when the pair next connects. */
+  fun setFirmwareUpdateRequirementEnabled(id: String, enabled: Boolean)
+
   // Display
 
   suspend fun startDisplayServer(): Int?

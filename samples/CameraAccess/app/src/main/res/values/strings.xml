@@ -51,9 +51,13 @@
 
     <!-- Update required -->
     <string name="update_firmware_button_title" description="Open firmware update">Update firmware</string>
+    <string name="update_dat_app_button_title" description="Open DAT glasses app update">Update glasses app</string>
+    <string name="start_stream_button_title" description="Start the camera stream after updating the glasses app">Start stream</string>
     <string name="update_required_title" description="Update required warning title">Update required</string>
     <string name="update_required_subtitle" description="Update required placeholder subtitle">Apply the update to start your camera.</string>
     <string name="update_required_firmware_message" description="Firmware update required warning">Your glasses need a firmware update before Camera Access can start.</string>
+    <string name="update_required_dat_app_subtitle" description="DAT glasses app update required placeholder subtitle">Update the glasses app in Meta AI, then try again.</string>
+    <string name="update_required_dat_app_message" description="Glasses app update required warning">The glasses app needs an update before Camera Access can start. Update it in Meta AI, then try again.</string>
 
     <!-- Camera permission redirect -->
     <string name="camera_permission_redirect_title" description="Camera permission redirect title">Allow camera access</string>
@@ -68,6 +72,7 @@
 
     <!-- Camera errors -->
     <string name="error_start_session_first" description="Error shown when previewing before a session is started">Start a session before previewing.</string>
+    <string name="error_session_retry_stop_timeout" description="Error shown when a session does not stop in time to retry">Couldn\'t stop the current session. Try again.</string>
     <string name="error_camera_permission_denied" description="Error shown when camera permission is denied">Camera permission denied</string>
     <string name="error_photo_capture_failed" description="Error shown when a photo capture fails">Couldn\'t capture photo. Try again.</string>
     <string name="error_recording_too_short" description="Error shown when a recording stops before any video is captured">Couldn\'t record. Hold a little longer and try again.</string>
@@ -92,6 +97,7 @@
     <string name="disable_mock_device_kit" description="Disable MockDeviceKit button">Disable MockDeviceKit</string>
     <string name="pair_rayban_meta" description="Pair Ray-Ban Meta">Pair Ray-Ban Meta</string>
     <string name="unpair" description="Unpair">Unpair</string>
+    <string name="simulate_dat_app_update_required" description="Mock action that makes the next session require a glasses app update">Simulate DAT app update-required error</string>
     <string name="select_image" description="Select image">Select image</string>
     <string name="has_captured_image" description="Has captured image">Has captured image</string>
     <string name="front_camera" description="Front camera">Front camera</string>

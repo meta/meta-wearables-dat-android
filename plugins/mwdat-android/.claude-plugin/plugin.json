@@ -1,11 +1,11 @@
 {
   "name": "mwdat-android",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Git-native DAT SDK guidance for android development, covering setup, camera streaming, display access, MockDeviceKit, session lifecycle, permissions, debugging, and sample app patterns.",
   "author": {
     "name": "Meta Wearables"
   },
-  "homepage": "https://github.com/facebook/meta-wearables-dat-android",
+  "homepage": "https://github.com/meta/meta-wearables-dat-android",
   "keywords": [
     "wearables",
     "dat",
@@ -16,5 +16,8 @@
   "skills": [
     "./skills/"
   ],
-  "mcpServers": "./mcp/dat_docs.json"
+  "mcpServers": [
+    "./mcp/dat_docs.json",
+    "./mcp/mockdevice/mockdevice.json"
+  ]
 }

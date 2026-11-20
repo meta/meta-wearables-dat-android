@@ -8,15 +8,18 @@
 
 package com.meta.pixelandtexel.birdspotter.features.settings
 
+import android.app.Activity
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
 import com.meta.pixelandtexel.birdspotter.domain.GlassesAccess
+import com.meta.pixelandtexel.birdspotter.domain.GlassesCompatibility
 import com.meta.pixelandtexel.birdspotter.domain.GlassesDeviceInfo
 import com.meta.pixelandtexel.birdspotter.domain.GlassesPermission
 import com.meta.pixelandtexel.birdspotter.domain.GlassesRegistrationState
 import com.meta.pixelandtexel.birdspotter.domain.GlassesSessionRepository
+import com.meta.wearable.dat.core.Wearables
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -57,9 +60,10 @@ internal fun accessStream(
  * What the glasses settings screen reports: where registration stands, which glasses Meta AI knows
  * about, and whether each of Meta AI's grants can be read and has been given.
  *
- * All reads. The raises — the grant flows, unlinking — live in the screen, because Android can only
- * raise either from an Activity; see [SettingsViewModel] for the same split and
- * [com.meta.pixelandtexel.birdspotter.domain.PermissionsController] for the rule it follows.
+ * Mostly reads. The raises — the grant flows, unlinking — live in the screen, because Android can
+ * only raise either from an Activity; see [SettingsViewModel] for the same split and
+ * [com.meta.pixelandtexel.birdspotter.domain.PermissionsController] for the rule it follows. The
+ * firmware update raise is the exception: it lives here, taking the Activity the screen hands it.
  */
 class GlassesSettingsViewModel(
     private val glassesSession: GlassesSessionRepository,
@@ -78,6 +82,17 @@ class GlassesSettingsViewModel(
           .deviceInfoStream()
           .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), null)
   // docs:glasses-device-info:end
+
+  val requiresFirmwareUpdate: StateFlow<Boolean> =
+      deviceInfo
+          .map { it?.compatibility == GlassesCompatibility.DEVICE_UPDATE_REQUIRED }
+          .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), false)
+
+  private val _firmwareUpdateFailure = MutableStateFlow<String?>(null)
+  val firmwareUpdateFailure: StateFlow<String?> = _firmwareUpdateFailure
+
+  private val _isLaunchingFirmwareUpdate = MutableStateFlow(false)
+  val isLaunchingFirmwareUpdate: StateFlow<Boolean> = _isLaunchingFirmwareUpdate
 
   /** Bumped by [refreshAccess] to re-run the checks without a link change. */
   private val refreshes = MutableStateFlow(0)
@@ -107,6 +122,23 @@ class GlassesSettingsViewModel(
    */
   fun refreshAccess() {
     refreshes.value += 1
+  }
+
+  fun openFirmwareUpdate(activity: Activity) {
+    if (_isLaunchingFirmwareUpdate.value) return
+    _isLaunchingFirmwareUpdate.value = true
+    try {
+      Wearables.openFirmwareUpdate(activity)
+          .fold(
+              onSuccess = { _firmwareUpdateFailure.value = null },
+              onFailure = { error, _ -> _firmwareUpdateFailure.value = error.description },
+          )
+    } catch (error: Exception) {
+      _firmwareUpdateFailure.value =
+          error.localizedMessage?.takeIf { it.isNotBlank() } ?: "The update could not be opened."
+    } finally {
+      _isLaunchingFirmwareUpdate.value = false
+    }
   }
 
   companion object {

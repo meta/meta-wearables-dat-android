@@ -30,14 +30,17 @@ The SDK is organized into four public modules:
 ```kotlin
 Wearables.initialize(context)
 
+var camera: Camera? = null
+
 Wearables.createSession(AutoDeviceSelector()).fold(
     onSuccess = { session ->
         lifecycleScope.launch {
             session.state.collect { state ->
-                if (state == DeviceSessionState.STARTED) {
+                if (state == DeviceSessionState.STARTED && camera == null) {
                     session.addCamera(StreamConfiguration()).fold(
-                        onSuccess = { camera ->
-                            camera.stream.start().onFailure { error, _ ->
+                        onSuccess = { addedCamera ->
+                            camera = addedCamera
+                            addedCamera.stream.start().onFailure { error, _ ->
                                 showError(error.description)
                             }
                         },
@@ -67,9 +70,11 @@ Wearables.createSession(AutoDeviceSelector()).fold(
 ## Error handling
 
 ```kotlin
-Wearables.checkPermissionStatus(Permission.CAMERA)
-    .onSuccess { status -> /* handle status */ }
-    .onFailure { error, _ -> /* handle error */ }
+lifecycleScope.launch {
+    Wearables.checkPermissionStatus(Permission.CAMERA)
+        .onSuccess { status -> /* handle status */ }
+        .onFailure { error, _ -> /* handle error */ }
+}
 ```
 
 Avoid `getOrThrow()` in user-facing samples. Surface typed errors from `DatResult` instead.
@@ -119,11 +124,11 @@ Use MockDeviceKit to drive registration, device availability, streaming media, a
 - Do not call SDK APIs before `Wearables.initialize(context)`
 - Do not call `addCamera(...)` or `addDisplay()` immediately after `session.start()`; wait for `DeviceSessionState.STARTED`
 - Do not assume a session implies streaming or display access; capabilities are attached separately
-- Do not ignore `DatResult` failures from `createSession`, `start`, `addCamera`, `addDisplay`, or `capturePhoto`
+- Do not ignore `DatResult` failures from `createSession`, `addCamera`, `addDisplay`, `stream.start()`, or `capturePhoto`; `session.start()` returns `Unit`, so watch `session.errors` for its failures
 - Do not reuse terminally stopped sessions, cameras, or streams
 
 ## Links
 
 - [Android API reference](https://wearables.developer.meta.com/docs/reference/android/dat/latest)
 - [Developer documentation](https://wearables.developer.meta.com/docs/develop/)
-- [GitHub repository](https://github.com/facebook/meta-wearables-dat-android)
+- [GitHub repository](https://github.com/meta/meta-wearables-dat-android)

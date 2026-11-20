@@ -151,6 +151,10 @@ class MockDeviceKitViewModel(private val application: Application) : AndroidView
     }
   }
 
+  fun simulateDatAppUpdateRequired(deviceInfo: MockDeviceInfo) {
+    deviceInfo.device.services.setDATAppUpdateRequirementEnabled(true)
+  }
+
   // Simulate a cap-touch tap and hold, which stops the active stream.
   fun tapAndHold(deviceInfo: MockDeviceInfo) {
     viewModelScope.launch {

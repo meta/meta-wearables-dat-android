@@ -117,6 +117,14 @@ class WearablesViewModel(private val application: Application) : AndroidViewMode
     }
   }
 
+  fun openDATGlassesAppUpdate(activity: Activity): Boolean {
+    val result = Wearables.openDATGlassesAppUpdate(activity)
+    result.onFailure { error, _ ->
+      setRecentError(error.getLocalizedDescription(application))
+    }
+    return result.isSuccess
+  }
+
   fun showDebugMenu() {
     _uiState.update { it.copy(isDebugMenuVisible = true) }
   }

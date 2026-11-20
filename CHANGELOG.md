@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 The public API is covered by semantic versioning guarantees, but features labeled experimental may change between minor releases. They can be built and tested against, though apps using them cannot be published yet.
 
+## [1.1.0] - 2026-11-20
+
+### Added
+
+- [API] `DeviceSession.pause()` and `DeviceSession.resume()`: Pause and resume an active session; observe `DeviceSession.state` for the `STARTED` → `PAUSED` → `STARTED` transitions. Calling `pause()` outside `STARTED`, or `resume()` outside `PAUSED`, is a no-op.
+- [API] `DeviceSessionError.NOT_REGISTERED`: Returned by `Wearables.createSession` when the app is not registered with Meta AI. If you match `DeviceSessionError` with `when`, add a branch for it.
+- [API] `RegistrationError.UNAUTHORIZED`: Emitted on `Wearables.registrationErrorStream`, without opening Meta AI, when the app is not authorized to register with Meta Wearables. If you match `RegistrationError` with `when`, add a branch for it.
+- [API] `MockDeviceKitConfig.isDevMode` sets whether the simulated registration is a Developer Mode app. The default, `null`, leaves the current state unchanged.
+- [API] `MockGlassesServices.setDATAppUpdateRequirementEnabled(enabled)` and `setFirmwareUpdateRequirementEnabled(enabled)` make simulated glasses require a glasses app or firmware update until turned off, so you can test your update prompts. The glasses app requirement takes effect from the next session start; set the firmware requirement before powering the glasses on.
+- MockDevice MCP: A bundled Model Context Protocol server that lets an AI coding assistant drive a simulated device to verify app behavior without physical glasses. Runs on the Python 3.8+ standard library and registers automatically when the plugin is installed.
+
+### Changed
+
+- `Wearables.createSession` now fails with `DeviceSessionError.NOT_REGISTERED` when the app is not registered. Wait for `Wearables.registrationState` to be `REGISTERED` before creating a session.
+- Unregistering your app now stops every active `DeviceSession`. Each session transitions to `STOPPED`; create a new one after the app is registered again.
+- When the glasses pause a stream because they were folded or taken off, got too hot, ran low on battery or hit their peak power limit, `Stream.errorStream` now emits `StreamError.HINGE_CLOSED`, `THERMAL_HOT`, `BATTERY_LOW` or `PEAK_POWER_LIMIT`. Before, most of these paused the stream without an error, and taking the glasses off reported `CRITICAL_STREAM_ERROR`.
+
+### Deprecated
+
+- [API] `MockDeviceKitInterface.simulateRegistrationOutcome(success)` is deprecated in favor of `setRegistrationResult(success)`.
+- [API] `MockVoiceInvocationKit.hasConnectedApps()` is deprecated in favor of the `hasConnectedApps` property.
+
+### Removed
+
+- [API] The `CRASH_REPORTING_OPT_OUT` manifest metadata flag has been removed. Use `ANALYTICS_OPT_OUT` to control both analytics and crash reporting.
+
 ## [1.0.1] - 2026-10-09
 
 ### Fixed

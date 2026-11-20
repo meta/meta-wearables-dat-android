@@ -169,7 +169,7 @@ class SpeechTestViewModel(
   private fun partingFor(error: Throwable): String =
       when (error) {
         GlassesError.GlassesUpdateRequired ->
-            "Your glasses need a firmware update — check them in the Meta AI app"
+            "Your glasses need a DAT app update — check them in the Meta AI app"
         else -> "The glasses session ended — check they are connected and try again"
       }
 

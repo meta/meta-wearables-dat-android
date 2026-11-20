@@ -121,12 +121,13 @@ class GlassesCameraViewModelTest {
   }
 
   @Test
-  fun aSessionThatEndedOnAStaleFirmwarePointsAtTheMetaAiApp() {
+  fun aSessionThatEndedOnAStaleDatAppPointsAtTheMetaAiApp() {
     // The failure that lies: a pair in this state reports battery, wear and heat over the
     // link the whole time, so "check they are connected" is the one answer that helps
     // least.
     val parting = GlassesCameraViewModel.parting(GlassesError.GlassesUpdateRequired)
 
-    assertTrue(parting.contains("firmware"))
+    assertTrue(parting.contains("DAT app"))
+    assertFalse(parting.contains("firmware"))
   }
 }

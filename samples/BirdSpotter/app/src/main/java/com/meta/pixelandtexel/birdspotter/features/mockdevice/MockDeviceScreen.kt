@@ -174,6 +174,12 @@ fun MockDeviceScreen(
       KitSection(uiState, viewModel)
       if (uiState.hasSelection) {
         DeviceSection(uiState, viewModel)
+        UpdatesSection(
+            datAppUpdateRequired = uiState.datAppUpdateRequired,
+            firmwareUpdateRequired = uiState.firmwareUpdateRequired,
+            onDATAppUpdateRequiredChange = viewModel::setDATAppUpdateRequired,
+            onFirmwareUpdateRequiredChange = viewModel::setFirmwareUpdateRequired,
+        )
         GrantsSection(uiState, viewModel)
         CameraSection(
             viewModel = viewModel,
@@ -281,6 +287,37 @@ private fun thermalLabel(level: GlassesThermalLevel): String =
       GlassesThermalLevel.ELEVATED -> "Elevated"
       GlassesThermalLevel.CRITICAL -> "Critical"
     }
+
+@Composable
+private fun UpdatesSection(
+    datAppUpdateRequired: Boolean,
+    firmwareUpdateRequired: Boolean,
+    onDATAppUpdateRequiredChange: (Boolean) -> Unit,
+    onFirmwareUpdateRequiredChange: (Boolean) -> Unit,
+) {
+  val colors = BirdSpotterTheme.colors
+  val space = BirdSpotterTheme.space
+  val type = BirdSpotterTheme.type
+
+  Column(verticalArrangement = Arrangement.spacedBy(space.related)) {
+    PlateLabel(text = "Updates", color = colors.gilt)
+    Text(
+        text = "Applies when the pair next connects, and to the next session it starts.",
+        style = type.label,
+        color = colors.textSecondary,
+    )
+    SwitchRow(
+        title = "Require DAT app update",
+        checked = datAppUpdateRequired,
+        onCheckedChange = onDATAppUpdateRequiredChange,
+    )
+    SwitchRow(
+        title = "Require firmware update",
+        checked = firmwareUpdateRequired,
+        onCheckedChange = onFirmwareUpdateRequiredChange,
+    )
+  }
+}
 
 @Composable
 private fun GrantsSection(uiState: MockDeviceUiState, viewModel: MockDeviceViewModel) {

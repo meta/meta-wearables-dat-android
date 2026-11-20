@@ -29,6 +29,8 @@ data class CameraUiState(
     // Bound directly to the SDK state machines.
     val sessionState: DeviceSessionState = DeviceSessionState.IDLE,
     val streamState: StreamState = StreamState.STOPPED,
+    // A session can fail because the DAT app on the glasses needs updating.
+    val isDATAppUpdateRequired: Boolean = false,
     // Flips once when the first preview frame arrives; drives the loading→preview swap. A one-shot
     // boolean (not a per-frame counter) keeps the screen from recomposing at the frame rate — the
     // SurfaceView renders frames independently of Compose.

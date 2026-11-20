@@ -172,9 +172,9 @@ fun DemoQuestionEditorScreen(
         onBack()
       },
       onDelete =
-          existing?.let {
+          existing?.let { existingQuestion ->
             {
-              viewModel.deleteQuestion(presetId, it.id)
+              viewModel.deleteQuestion(presetId, existingQuestion.id)
               onBack()
             }
           },
@@ -323,9 +323,9 @@ fun DemoPhotoEditorScreen(
         onBack()
       },
       onDelete =
-          existing?.let {
+          existing?.let { existingPhotoResponse ->
             {
-              viewModel.deletePhotoResponse(presetId, it.id)
+              viewModel.deletePhotoResponse(presetId, existingPhotoResponse.id)
               onBack()
             }
           },
@@ -432,9 +432,9 @@ fun DemoAmbientEditorScreen(
         onBack()
       },
       onDelete =
-          existing?.let {
+          existing?.let { existingAmbientCall ->
             {
-              viewModel.deleteAmbientCall(presetId, it.id)
+              viewModel.deleteAmbientCall(presetId, existingAmbientCall.id)
               onBack()
             }
           },
@@ -713,8 +713,8 @@ private fun SpeciesField(
 
   if (isPicking) {
     SpeciesPickerSheet(
-        onPick = {
-          onPick(it)
+        onPick = { pickedSpeciesId ->
+          onPick(pickedSpeciesId)
           isPicking = false
         },
         onDismiss = { isPicking = false },

@@ -24,6 +24,7 @@ import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isEnabled
@@ -116,6 +117,47 @@ class InstrumentationTest {
   fun startSessionThenStreaming() {
     pairActiveDevice(withCameraFeed = true, withCapturedImage = false)
     startSessionAndStream()
+  }
+
+  @Test
+  fun datAppUpdateRequiredShowsSingleRecoveryButton() {
+    val device = pairActiveDevice(withCameraFeed = false, withCapturedImage = false)
+    device.services.setDATAppUpdateRequirementEnabled(true)
+    waitForActiveDevice()
+
+    composeTestRule.onNodeWithTag("start_session_button").performClick()
+
+    composeTestRule.waitUntilExactlyOneExists(
+        hasTestTag("dat_app_recovery_button"),
+        timeoutMillis = STREAM_TIMEOUT,
+    )
+    composeTestRule.waitUntilExactlyOneExists(
+        hasText(targetContext.getString(R.string.update_dat_app_button_title)),
+        timeoutMillis = STREAM_TIMEOUT,
+    )
+  }
+
+  @Test
+  fun datAppUpdateRequiredClearsWhenDeviceIsRepaired() {
+    val device = pairActiveDevice(withCameraFeed = false, withCapturedImage = false)
+    device.services.setDATAppUpdateRequirementEnabled(true)
+    waitForActiveDevice()
+
+    composeTestRule.onNodeWithTag("start_session_button").performClick()
+    composeTestRule.waitUntilExactlyOneExists(
+        hasTestTag("dat_app_recovery_button"),
+        timeoutMillis = STREAM_TIMEOUT,
+    )
+
+    MockDeviceKit.getInstance(targetContext).unpairDevice(device)
+    pairActiveDevice(withCameraFeed = true, withCapturedImage = false)
+
+    composeTestRule.waitUntilDoesNotExist(
+        hasContentDescription(targetContext.getString(R.string.scaffold_error_icon_description)),
+        timeoutMillis = STREAM_TIMEOUT,
+    )
+    startSessionAndStream()
+    composeTestRule.onNodeWithTag("dat_app_recovery_button").assertDoesNotExist()
   }
 
   @Test

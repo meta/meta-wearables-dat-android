@@ -264,6 +264,12 @@ private fun MockDeviceCard(
               modifier = Modifier.padding(vertical = 4.dp),
           )
 
+          ActionButton(
+              modifier = Modifier.fillMaxWidth(),
+              text = stringResource(R.string.simulate_dat_app_update_required),
+              onClick = { viewModel.simulateDatAppUpdateRequired(deviceInfo) },
+          )
+
           // Toggles with tighter spacing
           Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
             // Power toggle

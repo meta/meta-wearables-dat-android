@@ -79,19 +79,9 @@
         <meta-data
             android:name="com.meta.wearable.mwdat.CLIENT_TOKEN"
             android:value="${mwdat_client_token}" />
-
-        <!--
-            Analytics and SDK crash capture both default to ON, so leaving these entries out
-            would read as consent. BirdSpotter has no analytics pipeline to feed and no crash
-            triage to run — anything sent off-device is collected by nobody — so the opt-out is
-            written down rather than assumed.
-        -->
         <meta-data
             android:name="com.meta.wearable.mwdat.ANALYTICS_OPT_OUT"
-            android:value="true" />
-        <meta-data
-            android:name="com.meta.wearable.mwdat.CRASH_REPORTING_OPT_OUT"
-            android:value="true" />
+            android:value="false" />
 
         <!--
             Portrait for the whole life of the app — there is one activity, so this is the whole

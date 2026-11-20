@@ -32,6 +32,7 @@ import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
@@ -397,10 +398,9 @@ private fun PlateCaption(
             .padding(horizontal = space.gutter, vertical = space.related),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-      Text(
+      BasicText(
           text = credit.orEmpty(),
-          style = BirdSpotterTheme.type.caption,
-          color = BirdSpotterTheme.colors.textFaint,
+          style = BirdSpotterTheme.type.caption.copy(color = BirdSpotterTheme.colors.textFaint),
           maxLines = 1,
           overflow = TextOverflow.Ellipsis,
           // Shrink the line to fit before dropping characters from it. Credits run
@@ -411,6 +411,7 @@ private fun PlateCaption(
               TextAutoSize.StepBased(
                   minFontSize = 10.sp,
                   maxFontSize = 12.sp,
+                  stepSize = 1.sp,
               ),
           modifier = Modifier.weight(1f),
       )
@@ -500,9 +501,9 @@ private fun VocalizationCard(
         }
       }
 
-      sonogram?.let {
+      sonogram?.let { sonogramMedia ->
         Spacer(Modifier.height(space.separate))
-        Sonogram(media = it, progress = state.progress, onScrub = onSeek)
+        Sonogram(media = sonogramMedia, progress = state.progress, onScrub = onSeek)
       }
 
       media.credit?.let { credit ->

@@ -17,14 +17,14 @@ You can find an overview of the Wearables Developer Center [here](https://wearab
 Create an account to stay informed of all updates, report bugs and register your organization.
 Set up a project and release channel to share your integration with test users.
 
-For help, discussion about best practices or to suggest feature ideas visit our [discussions forum](https://github.com/facebook/meta-wearables-dat-android/discussions).
+For help, discussion about best practices or to suggest feature ideas visit our [discussions forum](https://github.com/meta/meta-wearables-dat-android/discussions).
 
 See the [changelog](CHANGELOG.md) for the latest updates.
 
 ## Including the SDK in your project
 
 The Wearables Device Access Toolkit is published to [Maven Central](https://central.sonatype.com) under the `com.meta.wearable` group, so no access token or extra repository definition is required.
-The `mavenCentral()` repository already declared in your `settings.gradle.kts` is all you need.
+The `mavenCentral()` repository in your `settings.gradle.kts` is all you need.
 
 ### 1. Declare the Wearables Device Access Toolkit artifacts in `libs.versions.toml`
 
@@ -32,7 +32,7 @@ Check the available versions on the [artifact page](https://central.sonatype.com
 
 ```toml
 [versions]
-mwdat = "1.0.1"
+mwdat = "1.1.0"
 
 [libraries]
 mwdat-core = { group = "com.meta.wearable", name = "mwdat-core", version.ref = "mwdat" }
@@ -113,21 +113,14 @@ app's `AndroidManifest.xml` file within the `<application>` element:
 ### Crash reporting
 
 The Wearables Device Access Toolkit can capture crashes originating from SDK code, store them locally,
-and chain with any existing uncaught-exception handler your app installs. Crash reporting is **enabled by
-default**.
+and chain with any existing uncaught-exception handler your app installs.
 
-To opt out, add the following `<meta-data>` element to your app's `AndroidManifest.xml` file within the
-`<application>` element:
+Crash reporting is controlled by the analytics opt-out setting:
 
-```xml
-<meta-data
-    android:name="com.meta.wearable.mwdat.CRASH_REPORTING_OPT_OUT"
-    android:value="true"
-    />
-```
+- **If analytics are enabled** (no `ANALYTICS_OPT_OUT` metadata or value is `false`) → **Crash reporting is enabled**
+- **If analytics are disabled** (`ANALYTICS_OPT_OUT = true`) → **Crash reporting is disabled**
 
-**Default behavior:** If the `CRASH_REPORTING_OPT_OUT` metadata is missing or set to `false`, crash
-reporting is **enabled**. Set it to `true` to disable SDK crash capture.
+Use the `ANALYTICS_OPT_OUT` setting in your app's `AndroidManifest.xml` to control both analytics and crash reporting.
 
 ## AI-Assisted Development
 
@@ -140,13 +133,18 @@ This repository ships one public DAT knowledge base as a single plugin, plus fil
 | [Cursor](https://cursor.sh/) | `.cursor/rules/*.mdc` | Auto-loaded with glob-based triggers |
 | AGENTS.md-compatible tools | `AGENTS.md` | Portable fallback for agents that read `AGENTS.md` |
 | MCP-compatible editors | `https://mcp.developer.meta.com/wearables` | Connect as a remote HTTP MCP server; no authentication required |
+| MockDevice MCP | `plugins/mwdat-android/mcp/mockdevice/mockdevice_mcp_server.py` | Registered when you install the plugin in Muse Code, Claude Code, or Codex |
 
 Muse Code, Claude Code, and Codex install from the plugin payload under `plugins/`. Copilot, Cursor, and `AGENTS.md` readers use the native file-based artifacts at repo root.
+
+The two MCP servers do different jobs. The remote server at `mcp.developer.meta.com/wearables` searches the published documentation. The MockDevice MCP runs locally and drives a simulated pair of glasses inside your app, so the assistant can verify its own changes without hardware. It needs Python 3.8+ and nothing else — no pip, uv, or node. Your app must start the MockDevice test server first by calling `startTestServer`; the `CameraAccess` sample does this in a debug build launched with the `mwdat_ui_testing` intent extra. The MockDevice MCP sends nothing off your machine; the mock device events your app already logs record that the MCP drove them, and follow the same analytics opt-out. See the [MockDevice MCP guide](https://wearables.developer.meta.com/docs/develop/dat/ai-assisted-mockdevice-mcp/).
+
+If you're an AI coding agent in a session that's already running, a plugin you install now may not load until the next session. Read [`AGENTS.md`](AGENTS.md) instead: it carries the same guidance as the plugin's skills.
 
 ### Muse Code
 
 ```bash
-muse plugins marketplace add mwdat-android-marketplace https://github.com/facebook/meta-wearables-dat-android
+muse plugins marketplace add mwdat-android-marketplace https://github.com/meta/meta-wearables-dat-android
 muse plugins install mwdat-android@mwdat-android-marketplace
 muse plugins approve mwdat-android
 ```
@@ -162,7 +160,7 @@ Muse Code also reads `AGENTS.md` from your project root with no setup at all.
 ### Claude Code
 
 ```bash
-claude plugin marketplace add facebook/meta-wearables-dat-android
+claude plugin marketplace add meta/meta-wearables-dat-android
 claude plugin install mwdat-android@mwdat-android-marketplace
 ```
 
@@ -175,7 +173,7 @@ Or use the helper script:
 ### Codex
 
 ```bash
-codex plugin marketplace add facebook/meta-wearables-dat-android
+codex plugin marketplace add meta/meta-wearables-dat-android
 codex plugin add mwdat-android@mwdat-android-marketplace
 ```
 
@@ -199,7 +197,7 @@ Use the installer when you want the repo-native file surfaces for other tools:
 Or run the helper remotely:
 
 ```bash
-curl -sL https://raw.githubusercontent.com/facebook/meta-wearables-dat-android/main/install-skills.sh | bash
+curl -sL https://raw.githubusercontent.com/meta/meta-wearables-dat-android/main/install-skills.sh | bash
 ```
 
 ### What's included
@@ -214,6 +212,7 @@ curl -sL https://raw.githubusercontent.com/facebook/meta-wearables-dat-android/m
 - **Speech** — Recognize on-device speech, handle partial/final results, and test with MockDeviceKit
 - **Voice Invocations** — Launch or activate an app from Hey Meta and acknowledge each action
 - **MockDevice testing** — Test without physical glasses using MockDeviceKit
+- **MockDevice MCP** — Drive a simulated device from the assistant to verify changes
 - **DAT docs MCP** — Connect the hosted docs MCP server and search live DAT documentation with `search_dat_docs`
 - **Live debugging MCP** — Read-only runtime diagnosis from app-visible DAT debug events
 - **Session lifecycle** — Session and stream state, pause/resume behavior, and device availability monitoring
@@ -221,7 +220,9 @@ curl -sL https://raw.githubusercontent.com/facebook/meta-wearables-dat-android/m
 - **Debugging** — Common issues, Developer Mode, version compatibility, and session and stream diagnosis
 - **Sample app guide** — Building a complete DAT app
 
-For static reference context, point your AI tool at the [llms.txt endpoint](https://wearables.developer.meta.com/llms.txt?full=true). Installing the plugin registers `https://mcp.developer.meta.com/wearables` for live documentation search in Muse Code, Claude Code, and Codex. Other MCP-compatible editors can connect to that endpoint directly and use `search_dat_docs`. The public docs MCP server does not require authentication; do not configure tokens, OAuth, or custom authorization headers for it.
+For static reference context, point your AI tool at the [llms.txt index](https://wearables.developer.meta.com/llms.txt) and let it follow the links to the page it needs. Installing the plugin registers `https://mcp.developer.meta.com/wearables` for live documentation search in Muse Code, Claude Code, and Codex. Other MCP-compatible editors can connect to that endpoint directly and use `search_dat_docs`. The public docs MCP server does not require authentication; do not configure tokens, OAuth, or custom authorization headers for it.
+
+For hands-free verification, the bundled MockDevice MCP exposes `mock_*` tools that pair a device; set its power, wear, and hinge state; configure the camera feed; simulate capacitive touch, inputs, motion, and speech; set permission results; and read and tap the glasses display. Installing the plugin registers it in Muse Code, Claude Code, and Codex.
 
 ## License
 

@@ -16,7 +16,7 @@ Create a `DeviceSession` with `Wearables.createSession(...)`, start it, then att
 | `IDLE` | Session created, not started yet | Call `session.start()` |
 | `STARTING` | Connecting to the device | Show loading UI |
 | `STARTED` | Session active and ready for capabilities | Add or use capabilities |
-| `PAUSED` | Session temporarily suspended | Keep state, wait for resume or stop |
+| `PAUSED` | Session temporarily suspended by `pause()` or the device | Keep state, call `session.resume()` or wait for the device to resume |
 | `STOPPING` | Session is shutting down | Stop user work and wait |
 | `STOPPED` | Terminal; session ended | Release resources and create a new session if needed |
 
@@ -24,7 +24,7 @@ Create a `DeviceSession` with `Wearables.createSession(...)`, start it, then att
 
 ## Observe session state
 
-`start()` and `stop()` are both sync fire-and-forget and return `Unit`. Subscribe to `state` and `errors` before calling `start()` so no transition is missed, and treat `session.errors` as the failure channel for `start()`.
+`start()`, `stop()`, `pause()`, and `resume()` are all sync fire-and-forget and return `Unit`. Subscribe to `state` and `errors` before calling `start()` so no transition is missed, and treat `session.errors` as the failure channel for `start()`.
 
 ```kotlin
 Wearables.createSession(AutoDeviceSelector()).fold(
@@ -48,7 +48,7 @@ Wearables.createSession(AutoDeviceSelector()).fold(
 )
 ```
 
-Add capabilities from `onStarted(session)`. Calling `session.addCamera(...)` while the session is still `IDLE` fails with `DeviceSessionError.SESSION_IDLE`, and calling it after `STOPPED` fails with `DeviceSessionError.SESSION_ALREADY_STOPPED`.
+Add each capability once from `onStarted(session)`: a resumed session goes from `PAUSED` back to `STARTED` and keeps its capabilities, so a second `session.addCamera(...)` fails with `DeviceSessionError.CAPABILITY_ALREADY_ADDED`. Calling `session.addCamera(...)` while the session is still `IDLE` fails with `DeviceSessionError.SESSION_IDLE`, and calling it after `STOPPED` fails with `DeviceSessionError.SESSION_ALREADY_STOPPED`.
 
 ## Stream state
 
@@ -79,11 +79,18 @@ The SDK may pause or stop a session when:
 
 ## Pause and resume
 
-When a session is paused:
+Call `pause()` on a `STARTED` session and `resume()` on a `PAUSED` one. Like `start()` and `stop()`, both are sync fire-and-forget: observe `state` for the `STARTED` -> `PAUSED` -> `STARTED` transitions. `pause()` outside `STARTED` and `resume()` outside `PAUSED` are no-ops. The state changes only when the device confirms, so wait for `PAUSED` before calling `resume()` (and for `STARTED` before calling `pause()` again); earlier calls are ignored. If the observed state doesn't match what your app wants, call `pause()` or `resume()` again once it settles.
+
+```kotlin
+pauseButton.setOnClickListener { session.pause() }   // STARTED -> PAUSED
+resumeButton.setOnClickListener { session.resume() } // PAUSED -> STARTED
+```
+
+The device can also pause and resume the session on its own (for example a single cap-touch tap). When a session is paused:
 
 - The device connection may remain active
 - Attached capabilities stop doing useful work
-- Your app should wait for the next observed session state instead of trying to force a restart
+- Your app should not restart the session; call `resume()` or wait for the next observed session state
 
 ## Device availability
 

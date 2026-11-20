@@ -56,6 +56,8 @@ data class MockDeviceUiState(
     val batteryLevel: Int = 80,
     val isCharging: Boolean = false,
     val thermal: GlassesThermalLevel = GlassesThermalLevel.NOMINAL,
+    val datAppUpdateRequired: Boolean = false,
+    val firmwareUpdateRequired: Boolean = false,
     val cameraAccess: GlassesAccess = GlassesAccess.GRANTED,
     val microphoneAccess: GlassesAccess = GlassesAccess.GRANTED,
     val speechSource: MockSpeechSource = MockSpeechSource.INJECTED,
@@ -140,7 +142,16 @@ class MockDeviceViewModel(
     val model = _uiState.value.model
     viewModelScope.launch {
       runCatching { mockDevice.pair(model) }
-          .onSuccess { paired -> select(paired.id) }
+          .onSuccess { paired ->
+            select(paired.id)
+            // A fresh pair reports current versions; carry toggles left on over.
+            if (_uiState.value.datAppUpdateRequired) {
+              mockDevice.setDATAppUpdateRequirementEnabled(paired.id, true)
+            }
+            if (_uiState.value.firmwareUpdateRequired) {
+              mockDevice.setFirmwareUpdateRequirementEnabled(paired.id, true)
+            }
+          }
           .onFailure { _uiState.update { it.copy(notice = "The kit is not enabled.") } }
     }
   }
@@ -169,6 +180,16 @@ class MockDeviceViewModel(
   fun powerOn() = onSelected(mockDevice::powerOn)
 
   fun powerOff() = onSelected(mockDevice::powerOff)
+
+  fun setDATAppUpdateRequired(enabled: Boolean) {
+    _uiState.update { it.copy(datAppUpdateRequired = enabled) }
+    onSelected { mockDevice.setDATAppUpdateRequirementEnabled(it, enabled) }
+  }
+
+  fun setFirmwareUpdateRequired(enabled: Boolean) {
+    _uiState.update { it.copy(firmwareUpdateRequired = enabled) }
+    onSelected { mockDevice.setFirmwareUpdateRequirementEnabled(it, enabled) }
+  }
 
   fun don() = onSelected(mockDevice::don)
 

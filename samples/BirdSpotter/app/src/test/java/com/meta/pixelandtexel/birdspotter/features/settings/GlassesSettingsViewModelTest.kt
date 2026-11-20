@@ -10,7 +10,10 @@
 
 package com.meta.pixelandtexel.birdspotter.features.settings
 
+import android.app.Activity
+import android.os.Looper
 import com.meta.pixelandtexel.birdspotter.domain.GlassesAccess
+import com.meta.pixelandtexel.birdspotter.domain.GlassesCompatibility
 import com.meta.pixelandtexel.birdspotter.domain.GlassesDeviceInfo
 import com.meta.pixelandtexel.birdspotter.domain.GlassesPermission
 import com.meta.pixelandtexel.birdspotter.domain.GlassesRegistrationState
@@ -21,9 +24,17 @@ import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.yield
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.Robolectric
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 
 /**
  * The glasses settings screen's one piece of policy: **when a Meta AI grant is worth asking
@@ -37,7 +48,72 @@ import org.junit.Test
  *
  * Scenario names are fixed by the testing-parity rule.
  */
+@RunWith(RobolectricTestRunner::class)
 class GlassesSettingsViewModelTest {
+
+  @Test
+  fun firmwareBehind_reportsAnUpdateIsRequired() = runBlocking {
+    // The pair is listed but firmware-behind, whether or not it is in reach: the
+    // button is the way out, and it must not wait on the link.
+    val viewModel = GlassesSettingsViewModel(
+        FakeGlassesSession(
+            devices = listOf(firmwareBehind),
+            answers = listOf(GlassesAccess.UNKNOWN),
+        ),
+    )
+    val collecting = launch { viewModel.requiresFirmwareUpdate.collect {} }
+
+    var spins = 0
+    while (!viewModel.requiresFirmwareUpdate.value && spins++ < 200) {
+      idleMainLooper()
+      yield()
+    }
+    collecting.cancel()
+
+    assertTrue(viewModel.requiresFirmwareUpdate.value)
+  }
+
+  @Test
+  fun currentGlasses_reportNoUpdateIsRequired() = runBlocking {
+    val viewModel = GlassesSettingsViewModel(
+        FakeGlassesSession(
+            devices = listOf(reachable),
+            answers = listOf(GlassesAccess.GRANTED),
+        ),
+    )
+    val collecting = launch { viewModel.requiresFirmwareUpdate.collect {} }
+
+    repeat(50) {
+      idleMainLooper()
+      yield()
+    }
+    collecting.cancel()
+
+    assertFalse(viewModel.requiresFirmwareUpdate.value)
+  }
+
+  @Test
+  fun openingTheFirmwareUpdate_whenTheLaunchThrows_showsTheFailureInsteadOfWedgingTheGuard() {
+    val viewModel = GlassesSettingsViewModel(
+        FakeGlassesSession(
+            devices = listOf(reachable),
+            answers = listOf(GlassesAccess.GRANTED),
+        ),
+    )
+    val activity = Robolectric.buildActivity(Activity::class.java).get()
+
+    viewModel.openFirmwareUpdate(activity)
+
+    assertFalse(viewModel.isLaunchingFirmwareUpdate.value)
+    assertTrue(viewModel.firmwareUpdateFailure.value?.isNotEmpty() == true)
+
+    viewModel.openFirmwareUpdate(activity)
+
+    assertFalse(viewModel.isLaunchingFirmwareUpdate.value)
+    assertTrue(viewModel.firmwareUpdateFailure.value?.isNotEmpty() == true)
+  }
+
+  private fun idleMainLooper() = shadowOf(Looper.getMainLooper()).idle()
 
   @Test
   fun theLinkComingUpReReadsTheGrant() {
@@ -155,6 +231,11 @@ class GlassesSettingsViewModelTest {
 
   private val reachable = GlassesDeviceInfo(name = "Ray-Ban Meta", isAvailable = true)
   private val unreachable = GlassesDeviceInfo(name = "Ray-Ban Meta", isAvailable = false)
+  private val firmwareBehind = GlassesDeviceInfo(
+      name = "Ray-Ban Meta",
+      isAvailable = false,
+      compatibility = GlassesCompatibility.DEVICE_UPDATE_REQUIRED,
+  )
 }
 
 /**

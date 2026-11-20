@@ -47,12 +47,9 @@ import kotlinx.coroutines.sync.withLock
 class MainActivity : ComponentActivity() {
   companion object {
     private const val TAG = "CameraAccessMain"
-    // Intent boolean extra that activates the MockDevice test server for out-of-process MCP
-    // control.
     private const val EXTRA_UI_TESTING = "mwdat_ui_testing"
-    // Fixed loopback port the test server binds so the MCP host can reach it with a
-    // deterministic `adb forward`. Must match _DEFAULT_ANDROID_TEST_SERVER_PORT in the
-    // plugin's mcp/target_resolver.py.
+    // Fixed so a desktop test client can reach the server over `adb forward` without
+    // discovering the port first.
     private const val MOCK_TEST_SERVER_PORT = 8237
 
     // Required Android permissions for the DAT SDK to function properly
@@ -136,8 +133,6 @@ class MainActivity : ComponentActivity() {
     permissionCheckLauncher.launch(PERMISSIONS)
   }
 
-  // Debug-only: when launched with `--ez mwdat_ui_testing true`, enable MockDeviceKit and start its
-  // local HTTP test server so an out-of-process MCP client can drive the app without real glasses.
   private fun maybeStartMockDeviceTestServer() {
     if (!BuildConfig.DEBUG || !intent.getBooleanExtra(EXTRA_UI_TESTING, false)) {
       return

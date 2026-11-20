@@ -19,7 +19,7 @@
 
 set -euo pipefail
 
-REPO="facebook/meta-wearables-dat-android"
+REPO="meta/meta-wearables-dat-android"
 BRANCH="main"
 ARCHIVE_URL="https://github.com/${REPO}/archive/refs/heads/${BRANCH}.tar.gz"
 EXTRACT_DIR="meta-wearables-dat-android-${BRANCH}"

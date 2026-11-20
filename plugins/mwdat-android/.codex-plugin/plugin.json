@@ -1,9 +1,20 @@
 {
   "name": "mwdat-android",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Git-native DAT SDK guidance for Android development.",
   "author": {
     "name": "Meta Wearables"
   },
-  "mcpServers": "./mcp/dat_docs.json"
+  "mcpServers": {
+    "wearables": {
+      "type": "http",
+      "url": "https://mcp.developer.meta.com/wearables"
+    },
+    "mockdevice": {
+      "type": "stdio",
+      "command": "python3",
+      "args": ["mockdevice_mcp_server.py", "--platform", "android"],
+      "cwd": "./mcp/mockdevice"
+    }
+  }
 }

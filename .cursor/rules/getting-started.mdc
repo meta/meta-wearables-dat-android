@@ -10,19 +10,20 @@ Set up the Meta Wearables Device Access Toolkit in an Android app.
 ## Prerequisites
 
 - Android Studio Flamingo or newer
+- Kotlin, Android Gradle Plugin and JDK versions matching the [CameraAccess sample](https://github.com/meta/meta-wearables-dat-android/tree/main/samples/CameraAccess) or newer (see its `gradle/libs.versions.toml` and `app/build.gradle.kts`)
 - Android 10+ test device with the Meta AI app installed
 - Supported Meta glasses or MockDeviceKit for local testing
 - Developer Mode enabled in the Meta AI app for development builds
 
-The SDK is published to Maven Central under the `com.meta.wearable` group, so the `mavenCentral()` repository already declared in `settings.gradle.kts` is all that is needed. No access token is required.
-
 ## Step 1: Declare dependencies
+
+The SDK is published to Maven Central under the `com.meta.wearable` group, so no access token or extra repository definition is required. The `mavenCentral()` repository in your `settings.gradle.kts` is all you need.
 
 In `libs.versions.toml`:
 
 ```toml
 [versions]
-mwdat = "1.0.1"
+mwdat = "1.1.0"
 
 [libraries]
 mwdat-core = { group = "com.meta.wearable", name = "mwdat-core", version.ref = "mwdat" }
@@ -101,10 +102,14 @@ class MyApplication : Application() {
 Registration must complete before a session can start. Observe `Wearables.registrationState` and wait for `RegistrationState.REGISTERED`.
 
 ```kotlin
+import android.app.Activity
+import androidx.lifecycle.lifecycleScope
 import com.meta.wearable.dat.core.Wearables
 import com.meta.wearable.dat.core.selectors.AutoDeviceSelector
 import com.meta.wearable.dat.core.session.DeviceSession
 import com.meta.wearable.dat.core.session.DeviceSessionState
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 fun connect(activity: Activity) {
     Wearables.startRegistration(activity)
@@ -117,11 +122,8 @@ fun startSession() {
                 session.errors.collect { error -> showError(error.description) }
             }
             lifecycleScope.launch {
-                session.state.collect { state ->
-                    if (state == DeviceSessionState.STARTED) {
-                        addCameraStreaming(session)
-                    }
-                }
+                session.state.first { state -> state == DeviceSessionState.STARTED }
+                addCameraStreaming(session)
             }
             // Fire-and-forget: returns Unit and reports failures through session.errors.
             session.start()

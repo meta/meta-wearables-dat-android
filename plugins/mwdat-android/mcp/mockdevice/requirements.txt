@@ -1,0 +1,4 @@
+# @generated -- do not edit.
+
+# No third-party dependencies. The MockDevice MCP server runs on the
+# Python 3.8+ standard library only — launch it with `python3`.

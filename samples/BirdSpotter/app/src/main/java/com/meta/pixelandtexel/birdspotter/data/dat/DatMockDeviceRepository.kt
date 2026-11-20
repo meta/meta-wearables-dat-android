@@ -377,6 +377,16 @@ class DatMockDeviceRepository(
     glasses(id)?.services?.motion?.setMotionFeed(motionSamples(pose), true)
   }
 
+  // Updates
+
+  override fun setDATAppUpdateRequirementEnabled(id: String, enabled: Boolean) {
+    glasses(id)?.services?.setDATAppUpdateRequirementEnabled(enabled)
+  }
+
+  override fun setFirmwareUpdateRequirementEnabled(id: String, enabled: Boolean) {
+    glasses(id)?.services?.setFirmwareUpdateRequirementEnabled(enabled)
+  }
+
   // Display
 
   override suspend fun startDisplayServer(): Int? =

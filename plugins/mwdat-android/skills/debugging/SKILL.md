@@ -54,7 +54,7 @@ Developer Mode must be enabled for local development builds that use `mwdat_appl
 
 ### Stream never reaches `STREAMING`
 
-- Confirm `session.start()` succeeded before calling `session.addCamera(...)`
+- Call `session.addCamera(...)` only after `session.state` reports `STARTED`; `session.start()` returns `Unit`, so watch `session.errors` for start failures
 - Check camera permission status through `Wearables.checkPermissionStatus(...)`
 - Make sure `camera.stream.start()` returned success
 
@@ -108,4 +108,4 @@ app-visible DAT debug events.
 
 - [Known issues](https://wearables.developer.meta.com/docs/knownissues)
 - [Version dependencies](https://wearables.developer.meta.com/docs/version-dependencies)
-- [Troubleshooting discussions](https://github.com/facebook/meta-wearables-dat-android/discussions)
+- [Troubleshooting discussions](https://github.com/meta/meta-wearables-dat-android/discussions)

@@ -57,7 +57,7 @@ The stream reports `STARTING`, `STARTED`, and `STOPPED`. Creation and automatic 
 
 `close()` is terminal. Cancel collectors before closing the app-scoped stream when the app no longer listens.
 
-To test without hardware, check `glasses.services.voiceInvocation.hasConnectedApps()` before calling `simulateLaunchAppAction()`. Use `simulateIncompleteAction()` to verify malformed actions surface an error rather than an invocation.
+To test without hardware, check `glasses.services.voiceInvocation.hasConnectedApps` before calling `simulateLaunchAppAction()`. Use `simulateIncompleteAction()` to verify malformed actions surface an error rather than an invocation.
 
 ## Availability
 

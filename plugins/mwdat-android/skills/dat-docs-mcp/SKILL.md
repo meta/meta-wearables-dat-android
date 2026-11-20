@@ -100,5 +100,5 @@ npx @modelcontextprotocol/inspector
 
 ## Static fallback
 
-When a tool cannot use remote MCP servers at all, point it at the static
-reference instead: `https://wearables.developer.meta.com/llms.txt?full=true`.
+When a tool cannot use remote MCP servers at all, point it at the llms.txt
+index instead and follow its links: `https://wearables.developer.meta.com/llms.txt`.

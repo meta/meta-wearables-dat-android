@@ -144,7 +144,9 @@ class WearablesRepository(
       return DatResult.success(it)
     }
 
-    return mockDeviceKit.startTestServer(9000).map { port ->
+    // Requesting the fixed port publishes the server where a desktop test client can find it,
+    // whichever path started it; requesting the port already running returns it.
+    return mockDeviceKit.startTestServer(MOCK_TEST_SERVER_PORT).map { port ->
       ChromePreviewInfo(
           adbCommand = "adb forward tcp:$port tcp:$port",
           url = "http://127.0.0.1:$port/",
@@ -169,6 +171,10 @@ class WearablesRepository(
   }
 
   companion object {
+    // Fixed so a desktop test client can reach the server over `adb forward` without
+    // discovering the port first.
+    const val MOCK_TEST_SERVER_PORT = 8237
+
     @Volatile private var instance: WearablesRepository? = null
 
     fun getInstance(applicationContext: Context): WearablesRepository {

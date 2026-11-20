@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "name": "mwdat-android",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "displayName": "Meta Wearables DAT Android",
   "description": "Git-native DAT SDK guidance for Android development, covering setup, camera streaming, display access, MockDeviceKit, session lifecycle, permissions, debugging, and sample app patterns.",
   "compat": {
@@ -19,6 +19,7 @@
       {"id": "getting-started", "path": "skills/getting-started/SKILL.md"},
       {"id": "inputs", "path": "skills/inputs/SKILL.md"},
       {"id": "live-debugging-mcp", "path": "skills/live-debugging-mcp/SKILL.md"},
+      {"id": "mockdevice-mcp", "path": "skills/mockdevice-mcp/SKILL.md"},
       {"id": "mockdevice-testing", "path": "skills/mockdevice-testing/SKILL.md"},
       {"id": "motion", "path": "skills/motion/SKILL.md"},
       {"id": "permissions-registration", "path": "skills/permissions-registration/SKILL.md"},
@@ -32,6 +33,11 @@
         "id": "wearables",
         "transport": "http",
         "url": "https://mcp.developer.meta.com/wearables"
+      },
+      {
+        "id": "mockdevice",
+        "transport": "stdio",
+        "command": ["python3", "mcp/mockdevice/mockdevice_mcp_server.py", "--platform", "android"]
       }
     ]
   }

@@ -58,7 +58,9 @@ mwdat_client_token=YOUR_CLIENT_TOKEN
 
 ## Troubleshooting
 
-For issues related to the Meta Wearables Device Access Toolkit, please refer to the [developer documentation](https://wearables.developer.meta.com/docs/develop/dat/) or visit our [discussions forum](https://github.com/facebook/meta-wearables-dat-android/discussions)
+If a mock device requires a glasses-app update, call `device.services.setDATAppUpdateRequirementEnabled(false)` before starting a new session. Removing or replacing the active device clears the sample app's update prompt so a newly paired device can start a session and preview; it does not change the previous device's compatibility.
+
+For issues related to the Meta Wearables Device Access Toolkit, please refer to the [developer documentation](https://wearables.developer.meta.com/docs/develop/dat/) or visit our [discussions forum](https://github.com/meta/meta-wearables-dat-android/discussions)
 
 ## License
 

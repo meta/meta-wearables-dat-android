@@ -98,6 +98,9 @@ import com.meta.pixelandtexel.birdspotter.domain.SonogramColumn
 import com.meta.pixelandtexel.birdspotter.domain.SonogramColumnsPerSecond
 import com.meta.pixelandtexel.birdspotter.domain.StripReading
 import com.meta.pixelandtexel.birdspotter.features.journal.JournalFormatting
+import com.meta.pixelandtexel.birdspotter.features.settings.findActivity
+import com.meta.pixelandtexel.birdspotter.ui.components.ActionButton
+import com.meta.pixelandtexel.birdspotter.ui.components.ActionButtonTone
 import com.meta.pixelandtexel.birdspotter.ui.components.FrostedGround
 import com.meta.pixelandtexel.birdspotter.ui.components.LocationDot
 import com.meta.pixelandtexel.birdspotter.ui.components.PlateLabel
@@ -133,7 +136,8 @@ fun RealtimeScreen(
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-  val container = (LocalContext.current.applicationContext as BirdSpotterApplication).container
+  val context = LocalContext.current
+  val container = (context.applicationContext as BirdSpotterApplication).container
   // The session, which is the app's rather than this cover's: built once in the composition
   // root, so a run started by a voice launch before the cover rose is the run the cover shows,
   // and one still going when the cover falls goes on going.
@@ -184,6 +188,7 @@ fun RealtimeScreen(
       onCloseCamera = viewModel::closeCamera,
       onCapture = viewModel::capturePhoto,
       onToggleSource = viewModel::toggleSource,
+      onUpdateClick = { context.findActivity()?.let { viewModel.openUpdate(it) } },
       onShowCard = viewModel::showCard,
       onDismissCard = viewModel::dismissCard,
       onToggleFlash = viewModel::toggleFlash,
@@ -215,6 +220,7 @@ fun RealtimeScreen(
     onCloseCamera: () -> Unit,
     onCapture: () -> Unit,
     onToggleSource: () -> Unit,
+    onUpdateClick: () -> Unit,
     onShowCard: (String) -> Unit,
     onDismissCard: () -> Unit,
     onToggleFlash: () -> Unit,
@@ -304,6 +310,7 @@ fun RealtimeScreen(
               onOpenCamera = onOpenCamera,
               onCapture = onCapture,
               onToggleSource = onToggleSource,
+              onUpdateClick = onUpdateClick,
               onShowCard = onShowCard,
               stripReading = stripReading,
               onStripReadingChange = onStripReadingChange,
@@ -355,6 +362,7 @@ private fun SessionView(
     onOpenCamera: () -> Unit,
     onCapture: () -> Unit,
     onToggleSource: () -> Unit,
+    onUpdateClick: () -> Unit,
     onShowCard: (String) -> Unit,
     stripReading: StripReading,
     onStripReadingChange: (StripReading) -> Unit,
@@ -368,6 +376,7 @@ private fun SessionView(
         onStop = onStop,
         onClose = onClose,
         onToggleSource = onToggleSource,
+        onUpdateClick = onUpdateClick,
         onShowCard = onShowCard,
         stripReading = stripReading,
         onStripReadingChange = onStripReadingChange,
@@ -391,6 +400,7 @@ private fun SessionBody(
     onStop: () -> Unit,
     onClose: () -> Unit,
     onToggleSource: () -> Unit,
+    onUpdateClick: () -> Unit,
     onShowCard: (String) -> Unit,
     stripReading: StripReading,
     onStripReadingChange: (StripReading) -> Unit,
@@ -422,6 +432,14 @@ private fun SessionBody(
               Modifier.fillMaxWidth()
                   .padding(horizontal = BirdSpotterTheme.space.gutter)
                   .padding(top = BirdSpotterTheme.space.snug),
+      )
+    }
+
+    if (uiState.isUpdateRequired) {
+      UpdatePrompt(
+          uiState = uiState,
+          onUpdateClick = onUpdateClick,
+          onToggleSource = onToggleSource,
       )
     }
 
@@ -457,6 +475,61 @@ private fun SessionBody(
                 onShowCard = onShowCard,
                 modifier = Modifier.fillMaxSize(),
             )
+      }
+    }
+  }
+}
+
+@Composable
+private fun UpdatePrompt(
+    uiState: RealtimeUiState,
+    onUpdateClick: () -> Unit,
+    onToggleSource: () -> Unit,
+) {
+  Column(
+      modifier =
+          Modifier.fillMaxWidth()
+              .padding(horizontal = BirdSpotterTheme.space.gutter)
+              .padding(top = BirdSpotterTheme.space.related),
+      verticalArrangement = Arrangement.spacedBy(BirdSpotterTheme.space.related),
+  ) {
+    Text(
+        text = "Update required",
+        style = MaterialTheme.typography.titleMedium,
+        color = BirdSpotterTheme.colors.textPrimary,
+    )
+    Text(
+        text =
+            if (uiState.isDATAppUpdateRequired) {
+              "The DAT app on your glasses needs an update before BirdSpotter can start a session."
+            } else {
+              "Your glasses need a firmware update before BirdSpotter can start a session."
+            },
+        style = MaterialTheme.typography.bodySmall,
+        color = BirdSpotterTheme.colors.textSecondary,
+    )
+    uiState.updateFailure?.let { failure ->
+      Text(
+          text = failure,
+          style = MaterialTheme.typography.bodySmall,
+          color = BirdSpotterTheme.colors.textSecondary,
+      )
+    }
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(BirdSpotterTheme.space.related),
+    ) {
+      ActionButton(
+          title = if (uiState.isDATAppUpdateRequired) "Update glasses app" else "Update firmware",
+          onClick = onUpdateClick,
+          modifier = Modifier.weight(1f),
+      )
+      if (uiState.isDATAppUpdateRequired) {
+        ActionButton(
+            title = "Try again",
+            onClick = onToggleSource,
+            modifier = Modifier.weight(1f),
+            tone = ActionButtonTone.SECONDARY,
+        )
       }
     }
   }
@@ -1494,6 +1567,7 @@ private fun RealtimeScreenListeningPreview() {
       onCloseCamera = {},
       onCapture = {},
       onToggleSource = {},
+      onUpdateClick = {},
       onShowCard = {},
       onDismissCard = {},
       onToggleFlash = {},
@@ -1529,6 +1603,7 @@ private fun RealtimeScreenWaveformPreview() {
       onCloseCamera = {},
       onCapture = {},
       onToggleSource = {},
+      onUpdateClick = {},
       onShowCard = {},
       onDismissCard = {},
       onToggleFlash = {},
@@ -1560,6 +1635,7 @@ private fun RealtimeScreenFailedPreview() {
       onCloseCamera = {},
       onCapture = {},
       onToggleSource = {},
+      onUpdateClick = {},
       onShowCard = {},
       onDismissCard = {},
       onToggleFlash = {},
@@ -1592,6 +1668,7 @@ private fun RealtimeScreenReviewPreview() {
       onCloseCamera = {},
       onCapture = {},
       onToggleSource = {},
+      onUpdateClick = {},
       onShowCard = {},
       onDismissCard = {},
       onToggleFlash = {},

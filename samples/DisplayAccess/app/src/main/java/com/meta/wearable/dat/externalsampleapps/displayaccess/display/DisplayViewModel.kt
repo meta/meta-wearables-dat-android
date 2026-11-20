@@ -68,7 +68,7 @@ class DisplayViewModel(
   private companion object {
     private const val TAG = "DisplayAccessVM"
     private const val TUTORIAL_VIDEO_URL =
-        "https://github.com/facebook/meta-wearables-dat-android/raw/refs/heads/assets/video_266x150_faststart.mp4"
+        "https://github.com/meta/meta-wearables-dat-android/raw/refs/heads/assets/video_266x150_faststart.mp4"
 
     private val carMaintenanceTutorials = listOf(
         CarMaintenanceTutorial(

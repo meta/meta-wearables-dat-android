@@ -8,6 +8,7 @@
 
 package com.meta.pixelandtexel.birdspotter.features.identify
 
+import android.app.Activity
 import android.graphics.Bitmap
 import android.graphics.ImageDecoder
 import androidx.lifecycle.ViewModel
@@ -45,6 +46,7 @@ import com.meta.pixelandtexel.birdspotter.domain.DemoResult
 import com.meta.pixelandtexel.birdspotter.domain.GazeProvider
 import com.meta.pixelandtexel.birdspotter.domain.GlassesAccess
 import com.meta.pixelandtexel.birdspotter.domain.GlassesCameraRepository
+import com.meta.pixelandtexel.birdspotter.domain.GlassesCompatibility
 import com.meta.pixelandtexel.birdspotter.domain.GlassesDisplayRepository
 import com.meta.pixelandtexel.birdspotter.domain.GlassesError
 import com.meta.pixelandtexel.birdspotter.domain.GlassesInputEvent
@@ -76,6 +78,7 @@ import com.meta.pixelandtexel.birdspotter.domain.compassPoint
 import com.meta.pixelandtexel.birdspotter.domain.gazeBand
 import com.meta.pixelandtexel.birdspotter.domain.heardAloud
 import com.meta.pixelandtexel.birdspotter.domain.placement
+import com.meta.wearable.dat.core.Wearables
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.nio.ByteBuffer
@@ -256,6 +259,10 @@ data class RealtimeUiState(
      * reachable. The session may still fail to start — this is the invitation, not the promise.
      */
     val isGlassesAvailable: Boolean = false,
+    val requiresFirmwareUpdate: Boolean = false,
+    val isDATAppUpdateRequired: Boolean = false,
+    val isLaunchingUpdate: Boolean = false,
+    val updateFailure: String? = null,
     /**
      * The crossing: from asking for the glasses until their audio actually arrives.
      *
@@ -447,6 +454,9 @@ data class RealtimeUiState(
    */
   val canToggleSource: Boolean
     get() = isGlassesAvailable || isGlassesRequested
+
+  val isUpdateRequired: Boolean
+    get() = requiresFirmwareUpdate || isDATAppUpdateRequired
 
   /**
    * Whether the switch's glasses side is the chosen one.
@@ -1227,6 +1237,35 @@ class RealtimeViewModel(
     wantGlasses.value = true
   }
 
+  fun openUpdate(activity: Activity) {
+    if (_uiState.value.isLaunchingUpdate) return
+    _uiState.update { it.copy(isLaunchingUpdate = true) }
+    try {
+      val result =
+          if (_uiState.value.isDATAppUpdateRequired) {
+            Wearables.openDATGlassesAppUpdate(activity)
+          } else {
+            Wearables.openFirmwareUpdate(activity)
+          }
+      result.fold(
+          onSuccess = { _uiState.update { it.copy(updateFailure = null) } },
+          onFailure = { error, _ ->
+            _uiState.update { it.copy(updateFailure = error.description) }
+          },
+      )
+    } catch (error: Exception) {
+      _uiState.update {
+        it.copy(
+            updateFailure =
+                error.localizedMessage?.takeIf { it.isNotBlank() }
+                    ?: "The update could not be opened.",
+        )
+      }
+    } finally {
+      _uiState.update { it.copy(isLaunchingUpdate = false) }
+    }
+  }
+
   /**
    * Puts a photograph onto the timeline, at this moment in the session — the shutter's whole job,
    * on either device.
@@ -1538,6 +1577,17 @@ class RealtimeViewModel(
             }
           }
     }
+    launch {
+      // Ungated: a firmware-behind pair may never link.
+      glassesSession.deviceInfoStream().collect { device ->
+        _uiState.update {
+          it.copy(
+              requiresFirmwareUpdate =
+                  device?.compatibility == GlassesCompatibility.DEVICE_UPDATE_REQUIRED,
+          )
+        }
+      }
+    }
     wantGlasses.collectLatest { wanted ->
       if (wanted) {
         // The run beginning is what spends a standing ask — however it was made,
@@ -1560,7 +1610,13 @@ class RealtimeViewModel(
     // The pill goes to `Linking` now, before anything is asked of the pair, because the
     // first thing asked of it may be waiting — see below.
     _uiState.update {
-      it.copy(isGlassesRequested = true, isSourceLinking = true, sourceNotice = null)
+      it.copy(
+          isGlassesRequested = true,
+          isSourceLinking = true,
+          sourceNotice = null,
+          isDATAppUpdateRequired = false,
+          updateFailure = null,
+      )
     }
 
     // **The pair is waited for before it is asked anything.** A voice launch lands
@@ -1613,6 +1669,7 @@ class RealtimeViewModel(
     // the `catch`, so a session that paused and then stopped does not keep explaining the
     // pause it already recovered from — and so hanging up deliberately says nothing at all.
     var parting: String? = null
+    var datAppUpdateRequired = false
     try {
       // docs:glasses-session-state:begin
       glassesSession.sessionStream().collect { state ->
@@ -1640,6 +1697,7 @@ class RealtimeViewModel(
       BirdLog.error(LogCategory.GLASSES, error) { "glasses session — ended in failure" }
       BirdLog.debug(LogCategory.GLASSES) { error.stackTraceToString() }
       parting = partingFor(error)
+      datAppUpdateRequired = error is GlassesError.GlassesUpdateRequired
     } finally {
       inputJob.cancel()
       earsJob.cancel()
@@ -1662,6 +1720,7 @@ class RealtimeViewModel(
       val crossingLost = _uiState.value.isCapturing
       if (crossingLost) withContext(NonCancellable) { captureJob?.join() }
       _uiState.update { it.ending(crossingLost = crossingLost, parting = parting) }
+      _uiState.update { it.copy(isDATAppUpdateRequired = datAppUpdateRequired) }
     }
   }
 

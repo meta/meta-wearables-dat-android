@@ -1,0 +1,11 @@
+{
+  "description": "Drive the DAT MockDevice HTTP test server on an Android emulator or device: pair/unpair, power, wear, fold, cap-touch, camera feed, captured image, inputs, motion, speech, photo capture, permissions, Hey Meta voice invocations, and the glasses display. The server runs once the app calls startTestServer; the DAT sample apps start it in a debug build with the mwdat_ui_testing intent extra.",
+  "mcpServers": {
+    "mockdevice": {
+      "type": "stdio",
+      "command": "python3",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/mockdevice/mockdevice_mcp_server.py", "--platform", "android"],
+      "env": {}
+    }
+  }
+}
